@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html><head>
+	<meta http-equiv="Content-type" content="text/html; charset=utf-8">
+	<title>Settings and utilites</title>
+	<link rel="stylesheet" href="/style.css">
+</head><body>
+~inc:menu.inc~
+TotalKWT: ~TotalKWT~, TotalCnt: ~TotalCnt~, TotalCntT1: ~TotalCntT1~<br>
+Ptr: ~PtrCurrent~, Cnt1: ~CntCurrent1~, Cnt2: ~CntCurrent2~<br>
+PowerCnt: ~PowerCnt~, LastCnt: ~LastCnt~<br>
+LastTime: <span id="time__~TotalCntTime~_1">?</span><br><br>
+i2c errors: ~i2c_errors~<br>
+IoT last status: <span id="time__~iot_LastSt_time~_4">?</span> - ~iot_LastSt~<br>
+Make time: ~mktime~<br>
+SSID name: ~wifi_ap_ssid~ WEB ver: ~sys_webver~, SDK ver: ~sys_sdkver~.<br>
+WiFi ip: ~wifi_ap_ip~, IP: ~wifi_st_ip~<br><br>
+Time: <span id="time__~sntp_time~_2">No SNTP</span><br>
+Power on time: <span id="timer_~sys_mactime~_3">?</span><br><br>
+</p></div>
+~inc:footer.inc~
+~inc:time.inc~
+</body></html>

@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html><head>
+	<meta http-equiv="Content-type" content="text/html; charset=utf-8">
+	<title>Power Meter</title>
+	<link rel="stylesheet" href="/style.css">
+</head><body>
+~inc:menumain.inc~
+<div class="content">
+<h2 class="title"><span id="TotalKWT">?</span> kWt*h</h2>
+<p class="center">
+<span id="Str_T1_T2"></span>
+<span id="time__~TotalCntTime~_1">?</span>
+<br>
+<br>
+Last minute: <span id="last_kwt">?</span> kWt*h
+</p>
+<br><br>
+Time: <span id="time__~sntp_time~_2">No SNTP</span><br>
+Start time: <span id="timer_~sys_mactime~_3">?</span><br>
+Power: <span title="Vdd" id="syspower">?</span> V<br>
+</div>
+~inc:footer.inc~
+~inc:vdd.inc~
+~inc:time.inc~
+<script type="text/javascript">
+document.getElementById('TotalKWT').innerHTML = (~TotalCnt~ / ~cfg_meter_PulsesPerKWt~).toFixed(3);
+if("~cfg_meter_T1St~" != 0 || "~cfg_meter_T1En~" != 0) document.getElementById('Str_T1_T2').innerHTML = "Day: " + (~TotalCntT1~ / ~cfg_meter_PulsesPerKWt~).toFixed(3) + " &nbsp; Night: " + (~TotalCntT2~ / ~cfg_meter_PulsesPerKWt~).toFixed(3) + "<br><br>";
+document.getElementById('last_kwt').innerHTML = (~LastCnt~ * 60 / ~cfg_meter_PulsesPerKWt~).toFixed(2);
+</script>
+</body></html>

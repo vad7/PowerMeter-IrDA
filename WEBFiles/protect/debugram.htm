@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html><head>
+	<meta http-equiv="Content-type" content="text/html; charset=windows-1251">
+	<title>Debug to RAM</title>
+	<link rel="stylesheet" href="/style.css">
+	<script src="/site.js"></script>
+</head><body>
+~inc:menu.inc~
+<div class="content">
+<h2 class="title">Debug to RAM</h2>
+Address: ~dbg_addr~ filled: ~dbg_len~<br>
+<form method="post" action="debugram.htm">
+	Size: <input name="dbg_size" value="~dbg_size~">&ensp;
+	<input type="radio" name="dbg_enable" value="0"> stop 
+	<input type="radio" name="dbg_enable" value="1" title="dbg_printf()"> start tiny 
+	<input type="radio" name="dbg_enable" value="2" title="+ os_printf()"> start all 
+	&ensp;
+	<input type="submit" value="Set" class="button">
+<script type="text/javascript">
+	var f = document.getElementsByName("dbg_enable");
+	for(var i=0; i<f.length; i++){
+		if(f[i].value == "~dbg_enable~") f[i].checked = true;
+	}
+</script>
+</form>
+<br>
+<a href="debugram.txt" >save txt file...</a>
+<br>
+<textarea id="dbg_ram" rows=30 cols=80 wrap="off" style="font-size: smaller" readonly>~dbg_ram~</textarea>
+<form method="post" action="debugram.htm">
+	<input type="submit" value="Refresh" class="button">
+</form>
+</script>
+</div>
+~inc:footer.inc~
+~inc:vdd.inc~
+</body></html>

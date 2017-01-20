@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html><head>
+	<meta http-equiv="Content-type" content="text/html; charset=utf-8">
+	<title>Power Meter Setup</title>
+	<link rel="stylesheet" href="../style.css">
+	<script src="/scripts.js"></script>
+	<script src="/site.js"></script>
+</head><body>
+~inc:menumain.inc~
+	<div class="content">
+		<h2 class="title">Power Meter Setup</h2>
+		<form method="post" action="" onsubmit="SubmitFunction()">
+			<table class="form">
+				<tr>
+					<td class="label">Total cnt, kWt * ~cfg_meter_PulsesPerKWt~:
+					<input title='change?' type='checkbox' id='chg_tcnt' value='0'> 
+					</td>
+					<td><input title='0..4294967295' id='TCnt' name='cfg_meter_TotalCnt' maxlength='10' value='~TotalCnt~'>&ensp;&larr;&ensp;<input title='0.00..999999.99' id='kWt' size='8' value='~TotalKWT~' onchange='CalcTotalCnt("TCnt","kWt")'>&nbsp;kWt</td>
+				</tr>
+				<tr>
+					<td class="label">Total T1 cnt: &uarr; &nbsp;</td>
+					<td><input title='0..4294967295' id='TCntT1' name='cfg_meter_TotalCntT1' maxlength='10' value='~TotalCntT1~'>&ensp;&larr;&ensp;<input title='0.00..999999.99' id='T1kWt' size='8' value='~TotalKWTT1~' onchange='CalcTotalCnt("TCntT1","T1kWt")'>&nbsp;kWt</td>
+				</tr>
+				<tr>
+					<td class="label">Pulses per kWt:</td>
+					<td><input title='100,200,300,..10000' id='PkWt' name='cfg_meter_PulsesPerKWt' maxlength='5' value='~cfg_meter_PulsesPerKWt~'></td>
+				</tr>
+				<tr>
+					<td class="label">Adjust Time:</td>
+					<td><input title='sec' name='cfg_meter_TAdj' maxlength='6' value='~cfg_meter_TAdj~'></td>
+				</tr>
+				<tr>
+					<td class="label">Tariff 1 Start (incl):</td>
+					<td><input title='hhmm' name='cfg_meter_T1St' maxlength='4' value='~cfg_meter_T1St~'></td>
+				</tr>
+				<tr>
+					<td class="label">Tariff 1 End:</td>
+					<td><input title='hhmm' name='cfg_meter_T1En' maxlength='4' value='~cfg_meter_T1En~'></td>
+				</tr>
+				<tr>
+					<td class="label">Delimiter in .csv:</td>
+					<td><input title='char' name='cfg_meter_csv_delim' maxlength='1' value='~cfg_meter_csv_delim~'></td>
+				</tr>
+				<tr>
+					<td class="label">IoT cloud enable:</td>
+					<td><input type="hidden" name='cfg_iot_cloud_enable' value='0'><input type='checkbox' name='cfg_iot_cloud_enable' value='1'></td>
+				</tr>
+				<tr>
+					<td class="label">IoT cloud setup:
+					<input title='change?' type='checkbox' id='chg_iot' value='0'></td>
+					<td><textarea title='protect/iot_cloud.ini' name='cfg_iot_ini' rows=4 cols=50 wrap="off" maxlength=1023>~cfg_iot_ini~</textarea></td>
+				</tr>
+				<tr>
+					<td class="label">FRAM size (bytes):</td>
+					<td><input title='1024..' name='cfg_meter_Fram_Size' maxlength='10' value='~cfg_meter_Fram_Size~'></td>
+				</tr>
+				<tr>
+					<td class="label">FRAM access frequence:</td>
+					<td><input title='kHz' name='cfg_meter_FramFr' maxlength='5' value='~cfg_meter_FramFr~'></td>
+				</tr>
+				<tr>
+					<td class="label">GPIO debouncing, us:</td>
+					<td><input name='cfg_meter_Debouncing' maxlength='10' value='~cfg_meter_Debouncing~'></td>
+				</tr>
+				<tr>
+					<td class="label">Sensor pulse reversed:</td>
+					<td><input type="hidden" name='cfg_meter_revsens' value='0'><input type='checkbox' name='cfg_meter_revsens' value='1'></td>
+				</tr>
+				<tr>
+					<td class="label">Reset all data:</td>
+					<td><input type='password' title='Enter R....' name='cfg_meter_reset_data' maxlength='10' value=''></td>
+				</tr>
+ 			</table>
+		<p class="center">
+			<input type='hidden' name='cfg_meter_save' value='1'>
+			<input type='submit' value='Set Config' class="button">
+		</p>
+	</div>
+	<div class="content">
+ 		</form>
+		<p class="center">
+			<form method='post' action='/fsupload' enctype='multipart/form-data' class="center">
+			Upload to FRAM:
+			<input type='file' name='eeprom'> <input type='submit' value='Upload' class="button">
+		</p>
+        <br>
+	</div>
+~inc:footer.inc~
+<script type="text/javascript">
+var cfg = {
+	cfg_iot_cloud_enable:"~cfg_iot_cloud_enable~",
+	cfg_meter_revsens:"~cfg_meter_revsens~"
+}
+setFormValues(document.forms[0], cfg);
+function SubmitFunction() {
+	if(!document.getElementsById('chg_tcnt').checked) {
+		document.getElementsById('TCnt').removeAttribute('name');
+		document.getElementsById('TCntT1').removeAttribute('name');
+	}
+	if(!document.getElementsById('chg_iot').checked) {
+		document.getElementsByName('cfg_iot_ini')[0].removeAttribute('name');
+	}
+}
+function CalcTotalCnt(cnt, kwt) {
+	document.getElementById(cnt).value = Math.round(document.getElementById(kwt).value * document.getElementById('PkWt').value);
+}
+</script>
+</body></html>

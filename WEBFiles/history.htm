@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html><head>
+	<meta http-equiv="Content-type" content="text/html; charset=utf-8">
+	<title>History</title>
+	<link rel="stylesheet" href="/style.css">
+</head>
+<style>
+svg {
+	font: 8px sans-serif;
+}
+.area {
+	fill: steelblue;
+	clip-path: url(#clip);
+}
+.axis path,
+.axis line {
+	fill: none;
+	stroke: #000;
+	shape-rendering: crispEdges;
+}
+.brush .extent {
+	stroke: #fff;
+	fill-opacity: .125;
+	shape-rendering: crispEdges;
+}
+</style>
+<body>
+~inc:menumain.inc~
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script>
+var margin = {top: 10, right: 40, bottom: 80, left: 40},
+	margin2 = {top: 250, right: 40, bottom: 20, left: 40},
+	width = 640 - margin.left - margin.right,
+	height = 300 - margin.top - margin.bottom,
+	height2 = 300 - margin2.top - margin2.bottom;
+
+var parseDate = d3.time.format("%Y-%m-%d %X").parse;
+
+var customTimeFormat = d3.time.format.multi([
+	[".%L", function(d) { return d.getMilliseconds(); }],
+	[":%S", function(d) { return d.getSeconds(); }],
+	["%H:%M", function(d) { return d.getMinutes(); }],
+	["%H", function(d) { return d.getHours(); }],
+	["%a %d", function(d) { return d.getDay() && d.getDate() != 1; }],
+	["%b %d", function(d) { return d.getDate() != 1; }],
+	["%B", function(d) { return d.getMonth(); }],
+	["%Y", function() { return true; }]
+]);
+
+var x = d3.time.scale().range([0, width]),
+	x2 = d3.time.scale().range([0, width]),
+	y = d3.scale.linear().range([height, 0]),
+	y2 = d3.scale.linear().range([height2, 0]);
+
+var xAxis = d3.svg.axis().scale(x).tickFormat(customTimeFormat).ticks(20).orient("bottom"),
+	xAxis2 = d3.svg.axis().scale(x2).tickFormat(customTimeFormat).ticks(20).orient("bottom"),
+	yAxis = d3.svg.axis().scale(y).ticks(20).orient("left");
+	yAxis2 = d3.svg.axis().scale(y).ticks(20).orient("right");
+
+var brush = d3.svg.brush()
+	.x(x2)
+	.on("brush", brushed);
+
+var area = d3.svg.area()
+	.interpolate("linear")
+	.x(function(d) { return x(d.date); })
+	.y0(height)
+	.y1(function(d) { return y(d.value); });
+
+var area2 = d3.svg.area()
+	.interpolate("linear")
+	.x(function(d) { return x2(d.date); })
+	.y0(height2)
+	.y1(function(d) { return y2(d.value); });
+
+if("~ShowBy~" == "2") {
+	area.interpolate("step-after");
+	area2.interpolate("step-after");
+}
+
+var svg = d3.select("body").append("svg")
+	.attr("width", width + margin.left + margin.right)
+	.attr("height", height + margin.top + margin.bottom);
+
+svg.append("defs").append("clipPath")
+	.attr("id", "clip")
+	.append("rect")
+	.attr("width", width)
+	.attr("height", height);
+
+var focus = svg.append("g")
+	.attr("class", "focus")
+	.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+var context = svg.append("g")
+	.attr("class", "context")
+	.attr("transform", "translate(" + margin2.left + "," + margin2.top + ")");
+
+d3.csv("history.csv", type, function(error, data) {
+	x.domain(d3.extent(data.map(function(d) { return d.date; })));
+	y.domain([0, d3.max(data.map(function(d) { return d.value; }))]);
+	x2.domain(x.domain());
+	y2.domain(y.domain());
+
+	focus.append("path")
+		.datum(data)
+		.attr("class", "area")
+		.attr("d", area);
+  
+	focus.append("g")
+		.attr("class", "x axis")
+		.attr("transform", "translate(0," + height + ")")
+		.call(xAxis);
+  
+	focus.append("g")
+		.attr("class", "y axis")
+		.call(yAxis);
+
+	focus.append("g")
+		.attr("class", "y axis")
+		.attr("transform", "translate(" + width + ",0)")
+		.call(yAxis2);
+  
+	context.append("path")
+		.datum(data)
+		.attr("class", "area")
+		.attr("d", area2);
+  
+	context.append("g")
+		.attr("class", "x axis")
+		.attr("transform", "translate(0," + height2 + ")")
+		.call(xAxis2);
+  
+	context.append("g")
+		.attr("class", "x brush")
+		.call(brush)
+		.selectAll("rect")
+		.attr("y", -6)
+		.attr("height", height2 + 7);
+
+});
+function brushed() {
+	x.domain(brush.empty() ? x2.domain() : brush.extent());
+	focus.select(".area").attr("d", area);
+	focus.select(".x.axis").call(xAxis);
+}
+function type(d) {
+	d.date = parseDate(d.date);
+	d.value = +d.value;
+	return d;
+}
+</script>
+<br><br><br>
+<form method="post" action="history.htm">
+Max days: <input type="text" id="ChartMaxDays" maxlength="10" size="5" title="0 - all">
+&nbsp <input type="checkbox" id="ShowByKWT"> kWt, &nbsp;
+By: <input type="radio" id="ShowBy" name="ShowBy" value="0"> all <input type="radio" name="ShowBy" value="1"> day <input type="radio" name="ShowBy" value="2"> hour &nbsp;
+<input type="submit" value="Refresh" onClick="updCookie('ChartMaxDays');updCookie('ShowBy');updCookie('ShowByKWT');" class="button">
+</form>
+<br>
+Last: <span id="time__~TotalCntTime~_1">?</span><br>
+Download: <a href="history.csv">History.csv</a> &nbsp;&nbsp; <a href="historycnt.csv">Cumulative total</a> &nbsp;&nbsp; 
+<a href="/protect/fram_all.bin">FRAM memory</a><br>
+~inc:footer.inc~
+<script src="cookies.js"></script>
+<script>
+	setCookieElem("ShowByKWT", "~ShowByKWT~");
+	setCookieElem("ChartMaxDays", "~ChartMaxDays~");
+	setCookieElem("ShowBy", "~ShowBy~");
+</script>
+~inc:time.inc~
+</body></html>
