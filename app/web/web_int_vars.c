@@ -66,7 +66,6 @@ struct ping_option pingopt; // for test
 #include "overlay.h"
 #endif
 
-extern int rom_atoi(const char *);
 #define atoi rom_atoi
 
 typedef uint32 (* call_func)(uint32 a, uint32 b, uint32 c);

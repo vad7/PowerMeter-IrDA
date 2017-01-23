@@ -53,7 +53,6 @@
 #define mMIN(a, b)  ((a<b)?a:b)
 #define mMAX(a, b)  ((a>b)?a:b)
 
-extern int rom_atoi(const char *);
 #define atoi(s) rom_atoi(s)
 
 LOCAL void web_print_headers(HTTP_CONN *CurHTTP, TCP_SERV_CONN *ts_conn) ICACHE_FLASH_ATTR ;

@@ -37,9 +37,7 @@ PWMT_CURRENT __attribute__((aligned(4))) pwmt_cur;
 
 #define PWMT_CONNECT_PAUSE		5	// ms
 #define PWMT_CONNECT_TIMEOUT	150 // ms
-uint8 pwmt_connect_status; 	// 0 - not connected, 1 - connecting, 2 - connected
-uint8 pwmt_connect_pause;
-uint8 pwmt_connect_timeout;
+uint8 pwmt_connect_status; 			// PWMT_CONNECT_STATUS
 uint8 pwmt_address;
 
 typedef struct {
@@ -54,15 +52,25 @@ uint8 uart_queue_len;
 
 typedef enum
 {
-	UART_DELETED = 0,
-	UART_WAITING_SEND,
-	UART_WAITING_RESPONSE,
-	UART_RESPONSE_READY
+	PWMT_NOT_CONNECTED = 0,
+	PWMT_CONNECTING,
+	PWMT_CONNECTED
+} PWMT_CONNECT_STATUS;
+
+typedef enum
+{
+	UART_DELETED 			= 0,
+	UART_SEND_WAITING		= 0x01,
+	UART_RESPONSE_WAITING	= 0x02,
+	UART_RESPONSE_READING	= 0x03,
+	UART_RESPONSE_READY		= 0x04,
+	UART_RESPONSE_READY_OK	= 0x05,
 } UART_FLAG;
 
 typedef struct {
 	uint32 time;
 	uint8 flag; // UART_FLAG
+	uint8 len;
 	uint8 buffer[19];
 } UART_QUEUE;
 UART_QUEUE uart_queue[UART_QUEUE_IDX_MAX];

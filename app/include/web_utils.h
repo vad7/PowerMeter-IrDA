@@ -10,7 +10,9 @@
 #ifndef _INCLUDE_WEB_UTILS_H_
 #define _INCLUDE_WEB_UTILS_H_
 
-int rom_atoi(const char *s) ICACHE_FLASH_ATTR;
+//int rom_atoi(const char *s) ICACHE_FLASH_ATTR;
+int atoi_z(const char *s, uint8_t endchar_zero) ICACHE_FLASH_ATTR;
+#define rom_atoi(s) atoi_z(s, 0)
 void copy_align4(void *ptrd, void *ptrs, uint32 len);
 uint32 hextoul(uint8 *s) ICACHE_FLASH_ATTR;
 uint32 ahextoul(uint8 *s) ICACHE_FLASH_ATTR;

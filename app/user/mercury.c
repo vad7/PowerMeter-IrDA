@@ -7,6 +7,11 @@
  */
 #include "user_config.h"
 #ifdef USE_MERCURY
+#include "bios.h"
+#include "sdk/add_func.h"
+#include "hw/esp8266.h"
+#include "user_interface.h"
+#include "tcp2uart.h"
 #include "mercury.h"
 
 uint8	pwmt_buffer[20];
@@ -16,7 +21,7 @@ uint8	pwmt_response_len;
 uint32	pwmt_request_time;
 os_timer_t uart_receive_timer DATA_IRAM_ATTR;
 
-#define PWMT_REQUEST_TIMEOUT	5000 // us
+#define PWMT_READ_TIMEOUT		5000 // us
 #define PWMT_RESPONSE_TIMEOUT	150000 // us
 // X0h..X5h
 static const uint8 response_text_1[] ICACHE_RODATA_ATTR	= "Недопустимая команда или параметр";
@@ -26,7 +31,7 @@ static const uint8 response_text_4[] ICACHE_RODATA_ATTR	= "Часы счетчи
 static const uint8 response_text_5[] ICACHE_RODATA_ATTR	= "Не открыт канал связи";
 static const uint8 * const response_text_array[] ICACHE_RODATA_ATTR = { response_text_1, response_text_2, response_text_3, response_text_4, response_text_5 };
 static const uint8 connect_user[] = { 0,1,1, 1,1,1,1,1,1, 0x77,0x81 };
-static const uint8 cmd_get_current[] = { 0, 8, 0x11 };
+static const uint8 cmd_get_current[] = { 8, 0x11 };
 //#define cmd_get_W1 0x01
 //#define cmd_get_W2 0x02
 //#define cmd_get_W3 0x03
@@ -51,7 +56,7 @@ static const uint8 cmd_get_I3[] = { 8, 0x11, 0x23 };
 static const uint8 cmd_get_K1[] = { 8, 0x11, 0x31 };
 static const uint8 cmd_get_K2[] = { 8, 0x11, 0x32 };
 static const uint8 cmd_get_K3[] = { 8, 0x11, 0x33 };
-static const uint32 *cmd_get_current_array[] = {cmd_get_W1, cmd_get_W2, cmd_get_W3, cmd_get_U1, cmd_get_U2, cmd_get_U3, cmd_get_I1, cmd_get_I2, cmd_get_I3, cmd_get_K1, cmd_get_K2, cmd_get_K3};
+static const uint8 *cmd_get_current_array[] = {cmd_get_W1, cmd_get_W2, cmd_get_W3, cmd_get_U1, cmd_get_U2, cmd_get_U3, cmd_get_I1, cmd_get_I2, cmd_get_I3, cmd_get_K1, cmd_get_K2, cmd_get_K3};
 
 // CRC16
 uint16 		crc_tab16[256];
@@ -85,7 +90,6 @@ void ICACHE_FLASH_ATTR  init_crc16_tab( void ) {
 		}
 		crc_tab16[i] = crc;
 	}
-	crc_tab16_init = true;
 }
 
 void ICACHE_FLASH_ATTR uart_recvTask(os_event_t *events)
@@ -94,10 +98,11 @@ void ICACHE_FLASH_ATTR uart_recvTask(os_event_t *events)
 		#if DEBUGSOO > 4
     		os_printf("%s\n", UART_Buffer);
 		#endif
-    	if(uart_queue_len && uart_queue[0].flag == UART_WAITING_RESPONSE) {
+    	if(uart_queue_len && (uart_queue[0].flag | UART_RESPONSE_WAITING)) {
     		uart_queue[0].time = system_get_time();
+    		uart_queue[0].flag = UART_RESPONSE_READING;
     	}
-    	if(UART_Buffer_idx == pwmt_response_len) {
+/*    	if(UART_Buffer_idx == pwmt_response_len) {
 
     		UART_Buffer[UART_Buffer_size-1] = 0;
     		uint8 *p = web_strnstr(UART_Buffer, AZ_7798_ResponseEnd, UART_Buffer_idx);
@@ -119,26 +124,56 @@ void ICACHE_FLASH_ATTR uart_recvTask(os_event_t *events)
 				CO2_work_flag = 1;
 				receive_timeout = 0;
 			}
-    	}
+    	} */
     }
 }
 
-
-void ICACHE_FLASH_ATTR pwmt_prepare_send(uint8 * data, uint8 len)
+void ICACHE_FLASH_ATTR pwmt_prepare_send(const uint8 * data, uint8 len)
 {
-	uint8 *p = &uart_queue[uart_queue_len].buffer;
+	uint8 *p = uart_queue[uart_queue_len].buffer;
 	p[0] = pwmt_address;
 	os_memcpy(&p + 1, data, len++);
 	uint16_t crc = crc_modbus(p, len);
 	p[len++] = crc & 0xFF;
 	p[len] = crc >> 8;
-	uart_queue[uart_queue_len].flag = UART_WAITING_SEND;
+	uart_queue[uart_queue_len].len = len + 1;
+	uart_queue[uart_queue_len].flag = UART_SEND_WAITING;
 	uart_queue_len++;
+}
+
+void ICACHE_FLASH_ATTR pwmt_connect(void)
+{
+	if(pwmt_connect_status != PWMT_NOT_CONNECTED) return;
+	pwmt_prepare_send(connect_user, sizeof(connect_user));
+	pwmt_connect_status = PWMT_CONNECTING;
+}
+
+void ICACHE_FLASH_ATTR pwmt_uart_queue_next(void)
+{
+	if(uart_queue_len > 1)
+		os_memcpy(&uart_queue[0], &uart_queue[1], sizeof(cmd_get_current_array) - sizeof(cmd_get_current_array[0]));
+	uart_queue_len--;
+}
+
+void ICACHE_FLASH_ATTR pwmt_send_to_uart(void)
+{
+	if(uart_queue_len && uart_queue[0].flag <= UART_SEND_WAITING) {
+		if(uart_queue_len > 1 && uart_queue[0].flag == UART_DELETED) {
+			pwmt_uart_queue_next();
+			if(uart_queue[0].flag != UART_SEND_WAITING) return;
+		}
+		uart_drv_start();
+		UART_Buffer_idx = 0;
+		if(uart_tx_buf(uart_queue[0].buffer, uart_queue[0].len) == uart_queue[0].len) {
+			uart_queue[0].flag = UART_RESPONSE_WAITING;
+			uart_queue[0].time = system_get_time();
+		}
+	}
 }
 
 void ICACHE_FLASH_ATTR pwmt_read_current(void)
 {
-	if(pwmt_connect_status == 0) {
+	if(pwmt_connect_status == PWMT_NOT_CONNECTED) {
 		pwmt_connect();
 	}
 	if(UART_QUEUE_IDX_MAX - uart_queue_len < sizeof(cmd_get_current_array)) return; // overload
@@ -146,34 +181,57 @@ void ICACHE_FLASH_ATTR pwmt_read_current(void)
 	for(i = 0; i < sizeof(cmd_get_current_array) / sizeof(cmd_get_current_array[0]); i++) {
 		pwmt_prepare_send(cmd_get_current_array[i], sizeof(cmd_get_W1));
 	}
+	if(uart_queue_len == sizeof(cmd_get_current_array) / sizeof(cmd_get_current_array[0])) pwmt_send_to_uart();
 }
 
-void ICACHE_FLASH_ATTR pwmt_send_to_uart(void)
+void ICACHE_FLASH_ATTR uart_receive_timer_func(void) // call every 2 msec
 {
-	if(uart_queue_len && uart_queue[0].flag <= UART_WAITING_SEND) {
-		if(uart_queue_len > 1 && uart_queue[0].flag == UART_DELETED) {
-			os_memcpy(&uart_queue[0], &uart_queue[1], sizeof(cmd_get_current_array) - sizeof(cmd_get_current_array[0]));
-			if(uart_queue[0].flag != UART_WAITING_SEND) return;
+	if(uart_queue_len) {
+		uint8 fl = uart_queue[0].flag;
+		if(fl | UART_RESPONSE_WAITING) {
+			if(system_get_time() - uart_queue[0].time >= (fl == UART_RESPONSE_WAITING ? PWMT_RESPONSE_TIMEOUT : PWMT_READ_TIMEOUT)) {
+				uart_queue[0].flag = UART_RESPONSE_READY;
+				if(UART_Buffer_idx >= 4 && (crc_modbus(UART_Buffer, UART_Buffer_idx - 2) == UART_Buffer[UART_Buffer_idx - 1] * 256 + UART_Buffer[UART_Buffer_idx - 2])) {
+					#if DEBUGSOO > 4
+						os_printf("UART: ");
+						uint8 jjj;
+						for(jjj = 0; jjj < uart_queue[0].len; jjj++) {
+							os_printf("%02X ", uart_queue[0].buffer[jjj]);
+						}
+						os_printf(" => ");
+						for(jjj = 0; jjj < UART_Buffer_idx; jjj++) {
+							os_printf("%02X ", UART_Buffer[jjj]);
+						}
+						os_printf("\n");
+					#endif
+					uart_queue[0].flag = UART_RESPONSE_READY_OK;
+					//os_memcpy(uart_queue[0].buffer, UART_Buffer, UART_Buffer_idx);
+				} else { // error
+					//os_memset(uart_queue[0].buffer, 0, sizeof(uart_queue[0].buffer));
+					#if DEBUGSOO > 4
+						os_printf("Err UART %d\n", UART_Buffer_idx);
+					#else
+						dbg_printf("E_U %d\n", UART_Buffer_idx);
+					#endif
+					uart_queue[0].flag = UART_DELETED;
+					pwmt_send_to_uart();
+				}
+			}
+		} else if(fl == UART_RESPONSE_READY_OK) {
+			UART_QUEUE *uq = &uart_queue[0];
+			if(!os_memcmp(uq->buffer, connect_user, 3)) {
+				if(uq->buffer[1] == 0) { // ok
+					pwmt_connect_status = PWMT_CONNECTED;
+					pwmt_uart_queue_next();
+				} else {
+					pwmt_connect_status = PWMT_NOT_CONNECTED;
+					uart_queue_len = 0;
+				}
+			} else if(!os_memcmp(uq->buffer, cmd_get_current, sizeof(cmd_get_current))) {
+
+			}
+
 		}
-		uart_drv_start();
-		if(uart_tx_buf(uart_queue[0].buffer, sizeof(uart_queue[0].buffer)) == sizeof(uart_queue[0].buffer)) {
-			uart_queue[0].flag = UART_WAITING_RESPONSE;
-			uart_queue[0].time = system_get_time();
-		}
-	}
-}
-
-void ICACHE_FLASH_ATTR pwmt_connect(void)
-{
-	if(pwmt_connect_status) return;
-	pwmt_prepare_send(connect_user, sizeof(connect_user));
-	pwmt_connect_status = 1;
-}
-
-void ICACHE_FLASH_ATTR uart_receive_timer_func(void) // call every 5 msec
-{
-	if(uart_queue_len && uart_queue[0].flag == UART_WAITING_RESPONSE && uart_queue[0].time < ) {
-		uart_queue[0].time = system_get_time();
 	}
 }
 
@@ -181,10 +239,10 @@ void ICACHE_FLASH_ATTR irda_init(void)
 {
 	uarts_init();
 	init_crc16_tab();
-	pwmt_connect_status = 0;
+	pwmt_connect_status = PWMT_NOT_CONNECTED;
 	ets_timer_disarm(&uart_receive_timer);
 	os_timer_setfn(&uart_receive_timer, (os_timer_func_t *)uart_receive_timer_func, NULL);
-	ets_timer_arm_new(&uart_receive_timer, 5, 1, 1); // 1s, repeat
+	ets_timer_arm_new(&uart_receive_timer, 2, 1, 1); // 2ms, repeat
 }
 
 #endif

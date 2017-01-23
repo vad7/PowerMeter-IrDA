@@ -17,7 +17,8 @@
 
 #define mMIN(a, b)  ((a<b)?a:b)
 
-int ICACHE_FLASH_ATTR rom_atoi(const char *s)
+// if endchar_zero = 0 - end on non-integer char; endchar_zero = 1 - skip non-integer chars until /0
+int ICACHE_FLASH_ATTR atoi_z(const char *s, uint8_t endchar_zero)
 {
 	int n=0, neg=0;
 	while (*s == ' ') s++;
@@ -26,10 +27,14 @@ int ICACHE_FLASH_ATTR rom_atoi(const char *s)
 	case '+': s++;
 	}
 	/* Compute n as a negative number to avoid overflow on INT_MIN */
-	while (*s >= '0' && *s <= '9')
-		n = 10*n - (*s++ - '0');
+	while(1) {
+		if(*s >= '0' && *s <= '9') n = 10*n - (*s - '0');
+		else if(endchar_zero == 0 || *s == 0) break;
+		s++;
+	}
 	return neg ? n : -n;
 }
+
 /******************************************************************************
  * copy_align4
  * копирует данные из области кеширования flash и т.д.
@@ -634,4 +639,19 @@ bool ICACHE_FLASH_ATTR str_cmp_wildcards(char* wildstring, char *matchstring)
    }
    return TRUE;
 }
+
+int ICACHE_FLASH_ATTR rom_atoi(const char *s)
+{
+	int n=0, neg=0;
+	while (*s == ' ') s++;
+	switch (*s) {
+	case '-': neg=1;
+	case '+': s++;
+	}
+	/* Compute n as a negative number to avoid overflow on INT_MIN */
+	while (*s >= '0' && *s <= '9')
+		n = 10*n - (*s++ - '0');
+	return neg ? n : -n;
+}
+
 #endif
