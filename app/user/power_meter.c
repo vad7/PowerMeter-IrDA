@@ -210,15 +210,6 @@ void user_idle(void) // idle function for ets_run
 			wifi_station_connect();
 		}
 	}
-	if(Sensor_Edge && system_get_time() - PowerCntTime > 500000) { // us
-		// some problem here, after few sec - normal state of edge = 0
-		#if DEBUGSOO > 4
-			os_printf("RESET EDGE\n");
-		#endif
-		dbg_printf("Rst-edge\n");
-		gpio_pin_intr_state_set(SENSOR_PIN, SENSOR_FRONT_EDGE);
-		Sensor_Edge = 0;
-	}
 #if DEBUGSOO > 4
 	else if(print_i2c_page) { // 1..n
 		ets_set_idle_cb(NULL, NULL);
@@ -248,77 +239,6 @@ x1:			os_printf("\n");
 	}
 #endif
 
-}
-
-void GPIO_Task_NewData(os_event_t *e)
-{
-    switch(e->sig) {
-    	case GPIO_Int_Signal:
-    		if(e->par == SENSOR_PIN) { // new data
-#if DEBUGSOO > 2
-   				os_printf("*T: %u, n=%d\n", PowerCntTime, PowerCnt);
-#endif
-   				// update current PowerCnt
-   				if(FRAM_Status == 1) {
-   					FRAM_Store_Init();
-   					if(FRAM_Status) goto xEnd;
-   				} else if(FRAM_Status == 2){
-xRepeat:   			fram_init();
-   				}
-   				ets_intr_lock();
-   				fram_store.PowerCnt += PowerCnt;
-   				PowerCnt = 0;
-   				ets_intr_unlock();
-   				dbg_printf("pcnt=%u\n",fram_store.PowerCnt);
-  				WDT_FEED = WDT_FEED_MAGIC; // WDT
-   				if(eeprom_write_block(0 + (uint8 *)&fram_store.PowerCnt - (uint8 *)&fram_store, (uint8 *)&fram_store.PowerCnt, sizeof(fram_store.PowerCnt))) {
-					#if DEBUGSOO > 4
-  						os_printf("EW PrCnt %d\n", FRAM_Status);
-					#else
-  						dbg_printf("EW pcnt %d\n", FRAM_Status);
-					#endif
-   					if(FRAM_Status == 0) {
-   	   					FRAM_Status = 2;
-   						goto xRepeat;
-   					}
-   				} else {
-   					FRAM_Status = 0;
-   				}
-xEnd: 			if(user_idle_func_working == 0 && ets_idle_cb == NULL) {
-   	   				ets_set_idle_cb(user_idle, NULL); // sometimes idle func may be reset
-					#if DEBUGSOO > 2
-						os_printf("* user_idle was reseted, re-arm!\n");
-					#endif
-   				}
-    		}
-    		break;
-    }
-}
-
-// Do not use ICACHE* attr here!
-static void gpio_int_handler(void)
-{
-	uint32 gpio_status = GPIO_STATUS;
-	GPIO_STATUS_W1TC = gpio_status;
-	if(gpio_status & (1<<SENSOR_PIN)) {
-		uint32 tm = system_get_time();
-#if DEBUGSOO > 4
-		__wrap_os_printf_plus("*%u,%d*\n", tm, Sensor_Edge);
-#endif
-		dbg_printf("*%d* %u", Sensor_Edge, tm - PowerCntTime);
-		if(tm - PowerCntTime > cfg_glo.Debouncing_Timeout) { // skip if interval less than x us
-			PowerCntTime = tm;
-			if(!Sensor_Edge) { // Front edge
-				PowerCnt++;
-				dbg_printf(" =%u", PowerCnt);
-				if(FRAM_Status) dbg_printf(" (%d)", FRAM_Status);
-				system_os_post(SENSOR_TASK_PRIO, GPIO_Int_Signal, SENSOR_PIN);
-			}
-		    Sensor_Edge ^= 1; // next edge
-		}
-	    gpio_pin_intr_state_set(SENSOR_PIN, Sensor_Edge ? SENSOR_BACK_EDGE : SENSOR_FRONT_EDGE);
-	    dbg_printf("\n");
-	}
 }
 
 void ICACHE_FLASH_ATTR FRAM_Store_Init(void)
@@ -403,10 +323,8 @@ void ICACHE_FLASH_ATTR user_initialize(uint8 index)
 			// defaults
 			os_memset(&cfg_glo, 0, sizeof(cfg_glo));
 			cfg_glo.Fram_Size = FRAM_SIZE_DEFAULT;
-			cfg_glo.PulsesPer0_01KWt = DEFAULT_PULSES_PER_0_01_KWT;
 			cfg_glo.csv_delimiter = ',';
 			cfg_glo.fram_freq = 400;
-			cfg_glo.Debouncing_Timeout = 1000; // us
 		}
 		if(cfg_glo.ReverseSensorPulse) {
 			SENSOR_FRONT_EDGE = GPIO_PIN_INTR_POSEDGE;
@@ -424,70 +342,37 @@ void ICACHE_FLASH_ATTR user_initialize(uint8 index)
 		LastCnt_Previous = -1;
 		sntp_time_adjust = cfg_glo.TimeAdjust;
 
-		ets_isr_mask(1 << ETS_GPIO_INUM); // запрет прерываний GPIOs
-		// setup interrupt and os_task
-		uint32 pins_mask = (1<<SENSOR_PIN);
-		gpio_output_set(0,0,0, pins_mask); // настроить GPIOx на ввод
-		//GPIO_ENABLE_W1TC = pins_mask; // GPIO OUTPUT DISABLE отключить вывод в портах
-		set_gpiox_mux_func_ioport(SENSOR_PIN); // установить функцию GPIOx в режим порта i/o
-		SET_PIN_PULLUP_DIS(SENSOR_PIN);
-		ets_isr_attach(ETS_GPIO_INUM, gpio_int_handler, NULL);
-		gpio_pin_intr_state_set(SENSOR_PIN, SENSOR_FRONT_EDGE);
-		Sensor_Edge = 0; // Front
-		GPIO_STATUS_W1TC = pins_mask; // разрешить прерывания GPIOs
-		ets_isr_unmask(1 << ETS_GPIO_INUM);
+//		ets_isr_mask(1 << ETS_GPIO_INUM); // запрет прерываний GPIOs
+//		// setup interrupt and os_task
+//		uint32 pins_mask = (1<<SENSOR_PIN);
+//		gpio_output_set(0,0,0, pins_mask); // настроить GPIOx на ввод
+//		//GPIO_ENABLE_W1TC = pins_mask; // GPIO OUTPUT DISABLE отключить вывод в портах
+//		set_gpiox_mux_func_ioport(SENSOR_PIN); // установить функцию GPIOx в режим порта i/o
+//		SET_PIN_PULLUP_DIS(SENSOR_PIN);
+//		ets_isr_attach(ETS_GPIO_INUM, gpio_int_handler, NULL);
+//		gpio_pin_intr_state_set(SENSOR_PIN, SENSOR_FRONT_EDGE);
+//		Sensor_Edge = 0; // Front
+//		GPIO_STATUS_W1TC = pins_mask; // разрешить прерывания GPIOs
+//		ets_isr_unmask(1 << ETS_GPIO_INUM);
 	}
 	if(index & 2) {
-		system_os_task(GPIO_Task_NewData, SENSOR_TASK_PRIO, GPIO_TaskQueue, GPIO_Tasks);
+
+//		union {
+//			uint32 u32[2];
+//			uint64 u64;
+//		} t64;
+		os_printf("mktime = ");
+		uint32 ttt = system_mktime(2016, 1, 1, 20, 30, 40);
+		os_printf("%u\n", ttt);
+		uart_wait_tx_fifo_empty();
+
+
+
+
+
+
+
 		FRAM_Store_Init();
-		#if DEBUGSOO > 4
-			os_printf("PCnt = %d\n", PowerCnt);
-			uint8 p3 = GPIO_INPUT_GET(GPIO_ID_PIN(3));
-			os_printf("Systime: %d, io3=%x\n", system_get_time(), p3);
-			if(p3 == 0) {
-				uart_wait_tx_fifo_empty();
-				#define blocklen 64
-				uint8 *buf = os_zalloc(blocklen);
-				if(buf == NULL) {
-					os_printf("Err malloc!\n");
-				} else {
-					wifi_set_opmode_current(WIFI_DISABLED);
-					ets_isr_mask(0xFFFFFFFF); // mask all interrupts
-//					uint32 mt = system_get_time();
-//					power_meter_clear_all_data();
-//					mt = system_get_time() - mt;
-//					os_printf("Clear time: %d us\n", mt);
-					//i2c_init();
-					WDT_FEED = WDT_FEED_MAGIC; // WDT
-					uint16 i, j;
-					for(i = 0; i < cfg_glo.Fram_Size / blocklen; i++) {
-		//				if(eeprom_write_block(i * blocklen, buf, blocklen) == 0) {
-		//					os_printf("EW Bl: %d\n", i);
-		//					break;
-		//				}
-		//				WDT_FEED = WDT_FEED_MAGIC; // WDT
-		//				break;
-		//				continue;
-						uint32 mt = system_get_time();
-						if(eeprom_read_block(i * blocklen, buf, blocklen)) {
-							os_printf("ER Bl: %d\n", i);
-							break;
-						}
-						mt = system_get_time() - mt;
-						WDT_FEED = WDT_FEED_MAGIC; // WDT
-						os_printf("%3d: ", i);
-						for(j = 0; j < blocklen; j++) {
-							os_printf("%02x ", buf[j]);
-							WDT_FEED = WDT_FEED_MAGIC; // WDT
-						}
-						os_printf(" = time: %d\n", mt);
-					}
-					//os_free(buf);
-					os_printf("\nHalt\n");
-					while(1) WDT_FEED = WDT_FEED_MAGIC; // halt
-				}
-			}
-		#endif
 	}
 
 //	os_printf("-------- read cfg  ------------\n");

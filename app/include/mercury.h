@@ -16,15 +16,10 @@ typedef struct {
 } POWER;
 
 typedef struct {
-	uint32 W1; // Moment power Phase 1
-	uint32 W2; // Moment power Phase 2
-	uint32 W3; // Moment power Phase 3
-	uint16 U1; // Voltage 1
-	uint16 U2; // Voltage 2
-	uint16 U3; // Voltage 3
-	uint16 I1; // Current 1
-	uint16 I2; // Current 2
-	uint16 I3; // Current 3
+	uint32 W[4]; // Moment power *100W, All+Phase 1..3
+	uint32 U[3]; // Voltage *100V, phase 1..3
+	uint32 I[3]; // Current *1000A, phase 1..3
+	uint32 K[3]; // Power K *1000, phase 1..3
 	POWER Total;
 	POWER Year;
 	POWER Day;
@@ -33,21 +28,20 @@ typedef struct {
 	uint32 TotalPhase3; // W*h
 	time_t Time;
 } PWMT_CURRENT;
-PWMT_CURRENT __attribute__((aligned(4))) pwmt_cur;
-
-#define PWMT_CONNECT_PAUSE		5	// ms
-#define PWMT_CONNECT_TIMEOUT	150 // ms
-uint8 pwmt_connect_status; 			// PWMT_CONNECT_STATUS
-uint8 pwmt_address;
+PWMT_CURRENT pwmt_cur;
 
 typedef struct {
 	POWER PreviousYear;
 	POWER Month[12];
 	POWER PreviousDay;
 } PWMT_ARCHIVE;
-PWMT_ARCHIVE __attribute__((aligned(4))) pwmt_arch;
+PWMT_ARCHIVE pwmt_arch;
 
+uint8 pwmt_connect_status; 	// PWMT_CONNECT_STATUS
+uint8 pwmt_last_response;	// 1 byte response, 0..6
+uint8 pwmt_address;
 uint8 uart_queue_len;
+time_t pwmt_current_time;
 #define UART_QUEUE_IDX_MAX 15
 
 typedef enum
@@ -69,9 +63,12 @@ typedef enum
 
 typedef struct {
 	uint32 time;
+	void *receive_var;
+	uint8 type; // UART_RECORD_TYPE
+	uint8 size; // type repeat count
 	uint8 flag; // UART_FLAG
 	uint8 len;
-	uint8 buffer[19];
+	uint8 buffer[21];
 } UART_QUEUE;
 UART_QUEUE uart_queue[UART_QUEUE_IDX_MAX];
 

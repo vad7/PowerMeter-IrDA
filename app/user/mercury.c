@@ -1,9 +1,10 @@
 /*
- * Mercury power meter driver (http://www.incotexcom.ru/counters.htm)
+ * Mercury 230, 231AT power meter driver (http://www.incotexcom.ru/counters.htm)
  *
  * Use IrDa interface (UART0) at 9600b
  *
- * Written by vad7
+ * Written by Vadim Kulakov (c) vad7@yahoo.com
+ *
  */
 #include "user_config.h"
 #ifdef USE_MERCURY
@@ -25,41 +26,42 @@ os_timer_t uart_receive_timer DATA_IRAM_ATTR;
 #define PWMT_RESPONSE_TIMEOUT	150000 // us
 // X0h..X5h
 static const uint8 response_text_1[] ICACHE_RODATA_ATTR	= "Недопустимая команда или параметр";
-static const uint8 response_text_2[] ICACHE_RODATA_ATTR	= "Внутренняя ошибка счетчика";
-static const uint8 response_text_3[] ICACHE_RODATA_ATTR	= "Не достаточен уровень доступа";
-static const uint8 response_text_4[] ICACHE_RODATA_ATTR	= "Часы счетчика уже корректировались в течение суток";
+static const uint8 response_text_2[] ICACHE_RODATA_ATTR	= "Внутренняя ошибка";
+static const uint8 response_text_3[] ICACHE_RODATA_ATTR	= "Низкий уровень доступа";
+static const uint8 response_text_4[] ICACHE_RODATA_ATTR	= "Часы сегодня уже корректировались";
 static const uint8 response_text_5[] ICACHE_RODATA_ATTR	= "Не открыт канал связи";
-static const uint8 * const response_text_array[] ICACHE_RODATA_ATTR = { response_text_1, response_text_2, response_text_3, response_text_4, response_text_5 };
-static const uint8 connect_user[] = { 0,1,1, 1,1,1,1,1,1, 0x77,0x81 };
-static const uint8 cmd_get_current[] = { 8, 0x11 };
-//#define cmd_get_W1 0x01
-//#define cmd_get_W2 0x02
-//#define cmd_get_W3 0x03
-//#define cmd_get_U1 0x11
-//#define cmd_get_U2 0x12
-//#define cmd_get_U3 0x13
-//#define cmd_get_I1 0x21
-//#define cmd_get_I2 0x22
-//#define cmd_get_I3 0x23
-//#define cmd_get_K1 0x31
-//#define cmd_get_K2 0x32
-//#define cmd_get_K3 0x33
-static const uint8 cmd_get_W1[] = { 8, 0x11, 0x01 };
-static const uint8 cmd_get_W2[] = { 8, 0x11, 0x02 };
-static const uint8 cmd_get_W3[] = { 8, 0x11, 0x03 };
-static const uint8 cmd_get_U1[] = { 8, 0x11, 0x11 };
-static const uint8 cmd_get_U2[] = { 8, 0x11, 0x12 };
-static const uint8 cmd_get_U3[] = { 8, 0x11, 0x13 };
-static const uint8 cmd_get_I1[] = { 8, 0x11, 0x21 };
-static const uint8 cmd_get_I2[] = { 8, 0x11, 0x22 };
-static const uint8 cmd_get_I3[] = { 8, 0x11, 0x23 };
-static const uint8 cmd_get_K1[] = { 8, 0x11, 0x31 };
-static const uint8 cmd_get_K2[] = { 8, 0x11, 0x32 };
-static const uint8 cmd_get_K3[] = { 8, 0x11, 0x33 };
-static const uint8 *cmd_get_current_array[] = {cmd_get_W1, cmd_get_W2, cmd_get_W3, cmd_get_U1, cmd_get_U2, cmd_get_U3, cmd_get_I1, cmd_get_I2, cmd_get_I3, cmd_get_K1, cmd_get_K2, cmd_get_K3};
+static const uint8 response_text_6[] ICACHE_RODATA_ATTR	= "Ошибка CRC";
+static const uint8 * const response_text_array[] ICACHE_RODATA_ATTR = { response_text_1, response_text_2, response_text_3, response_text_4, response_text_5, response_text_6 };
+static const uint8 connect_user[] ICACHE_RODATA_ATTR = { 0,1,1, 1,1,1,1,1,1, 0x77,0x81 };
+static const uint8 cmd_get_W[] ICACHE_RODATA_ATTR = { 8, 0x16, 0x00 };
+static const uint8 cmd_get_U[] ICACHE_RODATA_ATTR = { 8, 0x16, 0x10 };
+static const uint8 cmd_get_I[] ICACHE_RODATA_ATTR = { 8, 0x16, 0x20 };
+static const uint8 cmd_get_K[] ICACHE_RODATA_ATTR = { 8, 0x16, 0x30 };
+
+typedef enum
+{
+	URT_STATUS = 0, // 1 byte answer (1..5)
+	URT_2B,		// 2 Bytes
+	URT_3N,		// Numeric 22bites, 3 Bytes (1B, 3B, 2B) (nnnnnnn)
+	URT_4N,		// Numeric 30bites, 4 Bytes (2B, 1B, 4B, 3B) (nnnnnnnnnn)
+	URT_TIME,	// 6 bytes (BCD): сек, мин, час, число, месяц, год
+	URT_CURTIME,// 8 bytes (BCD): cек, мин, час, день недели, число, месяц, год, зима(1)/лето(0)
+	URT_STR		// char array
+} UART_RECORD_TYPE;
+typedef struct {
+	const uint8 *data_send;
+	void  *receive_var;
+	uint8 type;	// UART_RECORD_TYPE
+	uint8 size;
+} UART_REQUEST_RECORD;
+
+#define cmd_get_current_array_element_size 3
+static const UART_REQUEST_RECORD cmd_get_current_array[] ICACHE_RODATA_ATTR = { {cmd_get_W, pwmt_cur.W, URT_3N, 4}, {cmd_get_U, pwmt_cur.U, URT_3N, 3},
+		{cmd_get_I, pwmt_cur.I, URT_3N, 3}, {cmd_get_K, pwmt_cur.K, URT_3N, 3} };
 
 // CRC16
 uint16 		crc_tab16[256];
+//static const uint16 crc_tab16[256] ICACHE_RODATA_ATTR = {
 #define		CRC_START_MODBUS	0xFFFF
 #define		CRC_POLY_16			0xA001
 // https://www.lammertbies.nl/comm/info/crc-calculation.html
@@ -90,6 +92,11 @@ void ICACHE_FLASH_ATTR  init_crc16_tab( void ) {
 		}
 		crc_tab16[i] = crc;
 	}
+//	os_printf("\nCRC-16 Modbus:\n");
+//	for(i = j = 0; i < 256; i++) {
+//		os_printf(" %02X,", crc_tab16[i]);
+//		if(++j == 32) os_printf("\n");
+//	}
 }
 
 void ICACHE_FLASH_ATTR uart_recvTask(os_event_t *events)
@@ -102,29 +109,6 @@ void ICACHE_FLASH_ATTR uart_recvTask(os_event_t *events)
     		uart_queue[0].time = system_get_time();
     		uart_queue[0].flag = UART_RESPONSE_READING;
     	}
-/*    	if(UART_Buffer_idx == pwmt_response_len) {
-
-    		UART_Buffer[UART_Buffer_size-1] = 0;
-    		uint8 *p = web_strnstr(UART_Buffer, AZ_7798_ResponseEnd, UART_Buffer_idx);
-    		if(p == NULL) return;
-   			*p = 0;
-   			if((p = os_strchr(UART_Buffer, AZ_7798_TempStart)) == NULL) return;
-   			p++;
-			uint8 *p2 = os_strchr(p, AZ_7798_TempEnd);
-			if(p2 == NULL) return;
-			*p2 = 0;
-			Temperature = atoi_z(p, 1);
-			p = p2 + 3;
-			if((p2 = os_strchr(p, AZ_7798_CO2End)) != NULL) {
-				*p2 = 0;
-				CO2level = atoi_z(p, 1);
-				p = p2 + 5;
-				Humidity = atoi_z(p, 1);
-				ProcessIncomingValues();
-				CO2_work_flag = 1;
-				receive_timeout = 0;
-			}
-    	} */
     }
 }
 
@@ -144,6 +128,7 @@ void ICACHE_FLASH_ATTR pwmt_prepare_send(const uint8 * data, uint8 len)
 void ICACHE_FLASH_ATTR pwmt_connect(void)
 {
 	if(pwmt_connect_status != PWMT_NOT_CONNECTED) return;
+	uart_queue_len = 0;
 	pwmt_prepare_send(connect_user, sizeof(connect_user));
 	pwmt_connect_status = PWMT_CONNECTING;
 }
@@ -177,11 +162,26 @@ void ICACHE_FLASH_ATTR pwmt_read_current(void)
 		pwmt_connect();
 	}
 	if(UART_QUEUE_IDX_MAX - uart_queue_len < sizeof(cmd_get_current_array)) return; // overload
+	uint8 autosend = !uart_queue_len;
 	uint8 i;
 	for(i = 0; i < sizeof(cmd_get_current_array) / sizeof(cmd_get_current_array[0]); i++) {
-		pwmt_prepare_send(cmd_get_current_array[i], sizeof(cmd_get_W1));
+		uart_queue[uart_queue_len].receive_var = cmd_get_current_array[i].receive_var;
+		uart_queue[uart_queue_len].type = cmd_get_current_array[i].type;
+		uart_queue[uart_queue_len].size = cmd_get_current_array[i].size;
+		pwmt_prepare_send(cmd_get_current_array[i].data_send, cmd_get_current_array_element_size);
+
 	}
-	if(uart_queue_len == sizeof(cmd_get_current_array) / sizeof(cmd_get_current_array[0])) pwmt_send_to_uart();
+	if(autosend) pwmt_send_to_uart();
+}
+
+// type = 0 -> 3 bytes, 1 -> 4 bytes
+void ICACHE_FLASH_ATTR uart_receive_get_number(uint32 *var, uint8 b4, uint8 array_size)
+{
+	uint8 i, *p = UART_Buffer + 1;
+	for(i = 0; i < array_size; i++) {
+		var++[i] = b4 ? (p[0] << 16) + (p[1] << 24) + p[2] + (p[3] << 8) : (p[0] << 16) + p[1] + (p[2] << 8);
+		p += 3 + b4;
+	}
 }
 
 void ICACHE_FLASH_ATTR uart_receive_timer_func(void) // call every 2 msec
@@ -213,24 +213,32 @@ void ICACHE_FLASH_ATTR uart_receive_timer_func(void) // call every 2 msec
 					#else
 						dbg_printf("E_U %d\n", UART_Buffer_idx);
 					#endif
+					pwmt_last_response = 6; // CRC error
 					uart_queue[0].flag = UART_DELETED;
 					pwmt_send_to_uart();
 				}
 			}
 		} else if(fl == UART_RESPONSE_READY_OK) {
 			UART_QUEUE *uq = &uart_queue[0];
-			if(!os_memcmp(uq->buffer, connect_user, 3)) {
-				if(uq->buffer[1] == 0) { // ok
+			pwmt_last_response = UART_Buffer[1];
+			if(pwmt_connect_status == PWMT_CONNECTING) {
+				if(pwmt_last_response == 0) { // ok
 					pwmt_connect_status = PWMT_CONNECTED;
 					pwmt_uart_queue_next();
 				} else {
 					pwmt_connect_status = PWMT_NOT_CONNECTED;
 					uart_queue_len = 0;
 				}
-			} else if(!os_memcmp(uq->buffer, cmd_get_current, sizeof(cmd_get_current))) {
+			} else if(uq->type == URT_2B) {
+				os_memcpy(uq->receive_var, UART_Buffer + 1, 2);
+			} else if(uq->type == URT_3N || uq->type == URT_4N) {
+				uart_receive_get_number(uq->receive_var, uq->type == URT_3N ? 0 : 1, uq->size);
+			} else if(uq->type == URT_CURTIME) {
+
+
+
 
 			}
-
 		}
 	}
 }
@@ -246,3 +254,4 @@ void ICACHE_FLASH_ATTR irda_init(void)
 }
 
 #endif
+
