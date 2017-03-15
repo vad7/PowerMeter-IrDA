@@ -48,6 +48,18 @@ void Cache_Read_Enable_New(void)
 #endif
 	Cache_Read_Enable_def();
 }
+
+// Read int32 values, limited flash size = 16777216
+SpiFlashOpResult spi_flash_read_max(uint32_t faddr, uint32_t *dst, size_t size)
+{
+	Cache_Read_Disable();
+	open_16m();
+	uint32 ret = SPIRead(faddr, dst, size);
+	close_16m();
+	Cache_Read_Enable_def();
+	return ret;
+}
+
 /******************************************************************************
  * FunctionName : spi_flash_read
  * Description  : чтение массива байт из flash
@@ -60,7 +72,7 @@ void Cache_Read_Enable_New(void)
 #define SPI_FBLK 32
 SpiFlashOpResult spi_flash_read(uint32 faddr, void *des, uint32 size)
 {
-#if DEBUGSOO > 5
+#if DEBUGSOO > 6
 	ets_printf("fread:%p<-%p[%u]\n", des, faddr, size);
 #endif
 	if(des == NULL) return SPI_FLASH_RESULT_ERR;
@@ -75,7 +87,7 @@ SpiFlashOpResult spi_flash_read(uint32 faddr, void *des, uint32 size)
 			uint32 blksize = (uint32)des & 3;
 			if(blksize) {
 				blksize = 4 - blksize;
-	#if DEBUGSOO > 4
+	#if DEBUGSOO > 6
 				ets_printf("fr1:%p<-%p[%u]\n", des, faddr, blksize);
 	#endif
 				if(size < blksize) blksize = size;
@@ -94,7 +106,7 @@ SpiFlashOpResult spi_flash_read(uint32 faddr, void *des, uint32 size)
 			while(size) {
 				if(size < SPI_FBLK) blksize = size;
 				else blksize = SPI_FBLK;
-	#if DEBUGSOO > 5
+	#if DEBUGSOO > 6
 				ets_printf("fr2:%p<-%p[%u]\n", des, faddr, blksize);
 	#endif
 				SPI0_ADDR = faddr | (blksize << 24);
@@ -112,7 +124,7 @@ SpiFlashOpResult spi_flash_read(uint32 faddr, void *des, uint32 size)
 					blksize -= 4;
 				}
 				if(blksize) {
-	#if DEBUGSOO > 4
+	#if DEBUGSOO > 6
 					ets_printf("fr3:%p<-%p[%u]\n", des, faddr, blksize);
 	#endif
 					uint32 data_buf = *srcdw;
@@ -187,7 +199,7 @@ SpiFlashOpResult spi_flash_erase_sector(uint16 sec)
 SpiFlashOpResult spi_flash_write(uint32 des_addr, uint32 *src_addr, uint32 size)
 {
 	if(src_addr == NULL) return SPI_FLASH_RESULT_ERR;
-	if(size & 3) size &= ~3;
+	size &= ~3;
 	Cache_Read_Disable();
 	open_16m();
 	SpiFlashOpResult ret = SPIWrite(des_addr, (uint32_t *) src_addr, size);

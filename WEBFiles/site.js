@@ -79,7 +79,7 @@ function pollAJAX() {
 		ajaxList.push(curAjax);
 	}
 	// Call ourselves again in 10ms?
-	setTimeout("pollAJAX()", nextimeout);
+	setTimeout(pollAJAX, nextimeout);
 }// End pollAjax
 function getXMLValue(xmlData, field) {
 	try {
@@ -92,4 +92,4 @@ function getXMLValue(xmlData, field) {
 	}
 }
 //kick off the AJAX Updater
-setTimeout("pollAJAX()", nextimeout);
+setTimeout(pollAJAX, nextimeout);

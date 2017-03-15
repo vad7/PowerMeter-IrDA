@@ -3,13 +3,17 @@ udplog.ovl
 Вывод отладочных логов в UDP port, вместо UART1.
 
 Инициализация:
-mdb[90] - dword, host ip, по умолчанию 255.255.255.255 (всем)
-mdb[92] - word, remote/host port, по умолчанию 1025
+
+cfg_overlay.ip_addr 	(было mdb[90]) - dword, host ip, по умолчанию 255.255.255.255 (всем)
+cfg_overlay.array16b[0] (было mdb[92]) - word, remote/host port, по умолчанию 1025
+
+Отправить буфер сейчас: ovl$=-1
+
 Переменные:
-mdb[93] - Флаг:	
+cfg_overlay.array16b[1] (было mdb[93]) - Флаг:	
 			=0 - драйвер закрыт
 			=1 - драйвер установлен и работает 
-mdb[94] - Ошибки: =0 - нет ошибок
+cfg_overlay.array16b[2] (было mdb[94]) - Ошибки: =0 - нет ошибок
 
 Запрос / Выходная информация или команда по UDP
 'A?' - DRV: set remote ip , remote port

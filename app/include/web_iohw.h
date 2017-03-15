@@ -17,7 +17,9 @@ void set_gpiox_mux_func_default(uint8 pin_num) ICACHE_FLASH_ATTR;
 volatile uint32 * get_addr_gpiox_mux(uint8 pin_num) ICACHE_FLASH_ATTR;
 uint32 get_gpiox_mux(uint8 pin_num) ICACHE_FLASH_ATTR;
 
+#ifdef USE_GPIO3_AS_CFG_RESET
 void test_pin_clr_wifi_config(void) ICACHE_FLASH_ATTR;
+#endif
 uint64 get_mac_time(void) ICACHE_FLASH_ATTR;
 
 #endif /* _WEB_IOHW_H_ */

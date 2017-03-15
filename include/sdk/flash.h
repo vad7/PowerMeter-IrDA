@@ -22,7 +22,7 @@
 #endif
 
 #define flashchip_sector_size   SPI_FLASH_SEC_SIZE
-#define sdk_flashchip_size 		FIX_SDK_FLASH_SIZE // размер 'песочницы' для SDK (стандарт = 512 килобайт)
+#define sdk_flashchip_size 		FIX_SDK_FLASH_SIZE // размер 'песочницы' для SDK (стандарт = 512/1024 килобайт)
 
 #define open_16m() 			flashchip->chip_size = FLASH_MAX_SIZE
 #define close_16m() 		flashchip->chip_size = FIX_SDK_FLASH_SIZE
@@ -78,5 +78,7 @@ void spi_flash_set_read_func(user_spi_flash_read read);
 #endif
 
 #define spi_flash_read_byte(faddr, dest) spi_flash_read(faddr, dest, 1);
+
+SpiFlashOpResult spi_flash_read_max(uint32_t faddr, uint32_t *dst, size_t size);
 
 #endif

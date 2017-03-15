@@ -1,1 +1,1 @@
-<response><name>Last kWt</name><value>(~LastCnt~*60/~cfg_meter_PulsesPerKWt~).toFixed(1)</value></response>
+<response><name>Last kWt</name><value>(~PWMT_power~/100).toFixed(2)</value></response>

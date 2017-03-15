@@ -4,6 +4,9 @@
  *
 */
 
+#include "user_config.h"
+#ifdef DEBUG_TO_RAM
+
 #include "c_types.h"
 
 #define DEBUG_RAM_BUF_MAX	32768
@@ -14,5 +17,8 @@ extern uint8  Debug_level;
 extern char print_mem_buf[1024];
 void dbg_printf_out(char c);
 void dbg_printf(const char *format, ...);
+uint32 dbg_next_time(void);
 void dbg_set(uint8 level, uint32 size) ICACHE_FLASH_ATTR;
 void dbg_tcp_send(void * ts_conn) ICACHE_FLASH_ATTR;
+
+#endif

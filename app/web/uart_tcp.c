@@ -49,7 +49,7 @@ extern void uart0_write_char(char c);
 #define MASK_MUX ((1<<GPIO_MUX_FUN_BIT0)|(1<<GPIO_MUX_FUN_BIT1)|(1<<GPIO_MUX_FUN_BIT2)|(1<<GPIO_MUX_PULLDOWN_BIT)|(1<<GPIO_MUX_PULLUP_BIT))
 //-----------------------------------------------------------------------------
 #define UART_RX_ERR_INTS (UART_BRK_DET_INT_ENA | UART_RXFIFO_OVF_INT_ENA | UART_FRM_ERR_INT_ENA | UART_PARITY_ERR_INT_ENA)
-#if DEBUGSOO > 4
+#if DEBUGSOO > 5
 #define DEBUG_OUT(x)  os_printf("%c", x);
 #else
 #define DEBUG_OUT(x)  //UART1_FIFO = x
@@ -177,6 +177,7 @@ void ICACHE_FLASH_ATTR update_mux_uart0(void)
 //-----------------------------------------------------------------------------
 void ICACHE_FLASH_ATTR update_mux_txd1(void)
 {
+#if I2C_SDA_PIN != 2 // GPIO2 already used
 #if DEBUG00 > 5
 	os_printf("update_mux_txd1 - %x\n", syscfg.cfg.b.debug_print_enable);
 #endif	
@@ -184,11 +185,11 @@ void ICACHE_FLASH_ATTR update_mux_txd1(void)
 	uint32 x = MUX_TX_UART1 & (~MASK_MUX);
 	if(syscfg.cfg.b.debug_print_enable) {
 		x |= VAL_FUNC_U1TX;
-	}
-	else {
+	} else {
 		x |= VAL_MUX_TX_UART1_OFF;
 	}
 	MUX_TX_UART1 = x;
+#endif
 }
 //=============================================================================
 // Инверсия входов/выходов RXD, TXD, RTS, CTS, DTR, DSR
@@ -330,7 +331,12 @@ void uart0_set_tout(void)
 uint32 uart_tx_buf(uint8 *buf, uint32 count)
 {
 	#if DEBUGSOO > 4
-		os_printf("TX BUF: %c\n", buf[0]);
+	{
+		uint8 i;
+		os_printf(" TX(%u):", system_get_time());
+		for(i = 0; i < count; i++) os_printf(" %02X", buf[i]);
+		os_printf("\n");
+	}
 	#endif
 	int len = 0;
 	while(len < count){

@@ -14,8 +14,8 @@
 #include "osapi.h"
 #include "gpio.h"
 
-#define I2C_SDA_PIN 2 // SDA on GPIO2
-#define I2C_SCL_PIN 0 // SCL on GPIO0
+//#define I2C_SDA_PIN 2 // SDA on GPIO2
+//#define I2C_SCL_PIN 0 // SCL on GPIO0
 
 uint32	I2C_EEPROM_Error;
 
@@ -24,7 +24,7 @@ uint32	I2C_EEPROM_Error;
 #define I2C_NOACK			1
 #define I2C_ACK				0
 
-void 	i2c_init(uint32 delay_us) ICACHE_FLASH_ATTR;
+void 	i2c_init(uint32 freq) ICACHE_FLASH_ATTR;
 uint8_t i2c_Start(uint8_t addr) ICACHE_FLASH_ATTR;
 void 	i2c_Stop(void) ICACHE_FLASH_ATTR;
 uint8_t i2c_WriteBit(uint8_t bit);

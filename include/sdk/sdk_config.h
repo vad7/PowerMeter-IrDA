@@ -9,13 +9,13 @@
 
 #define USE_RAPID_LOADER 	0x40200070
 
-#define DEBUGSOO	5 // 0 - откл вывода, 1 - минимум, 2 - норма, >3 - текушая отладка, >4 - удалить что найдется :)
-#define DEBUG_UART  0 // включить вывод в загрузчике сообщений, номер UART
+#define DEBUGSOO	6 // 0 - откл вывода, 1 - минимум, 2 - норма, >3 - текушая отладка, >4 - удалить что найдется :)
+#define DEBUG_UART  1 // включить вывод в загрузчике сообщений, номер UART
 
 #define DEBUG_UART0_BAUD 921600 //74880 //115200
 #define DEBUG_UART1_BAUD 921600
 
-//#define STARTUP_CPU_CLK 160 // 80
+#define STARTUP_CPU_CLK 80 //160
 
 #ifndef ICACHE_FLASH // (назначается в MakeFile -DICACHE_FLASH)
 	#define ICACHE_FLASH
@@ -44,10 +44,10 @@
 	#endif
 #endif
 
-//#if DEF_SDK_VERSION >= 2000
+#if DEF_SDK_VERSION >= 2000
 // замена user_rf_cal_sector_set()
 #define DEF_RF_CAL_SEC (128-5) // сектор сохранения калибровок WiFi faddr = 0x7B000
-//#endif
+#endif
 
 //#define USE_READ_ALIGN_ISR // побайтный доступ к IRAM и cache Flash через EXCCAUSE_LOAD_STORE_ERROR
 

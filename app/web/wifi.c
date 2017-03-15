@@ -461,6 +461,7 @@ void ICACHE_FLASH_ATTR print_wifi_config(void) {
  * FunctionName : New_WiFi_config
  ******************************************************************************/
 uint32 ICACHE_FLASH_ATTR New_WiFi_config(uint32 set_mask) {
+#ifndef BUILD_FOR_OTA_512k
 	uint32 uiwset = Cmp_WiFi_chg(&wificonfig) & set_mask;
 #if DEBUGSOO > 1
 	os_printf("WiFi_set(%p)=%p\n", set_mask, uiwset);
@@ -470,6 +471,9 @@ uint32 ICACHE_FLASH_ATTR New_WiFi_config(uint32 set_mask) {
 	if(set_mask & WIFI_MASK_SAVE) flash_save_cfg(&wificonfig, ID_CFG_WIFI, sizeof(wificonfig));
 	if(set_mask & WIFI_MASK_REBOOT)  system_restart(); // software_reset();
 	return uiwset;
+#else
+	return 0;
+#endif
 }
 /******************************************************************************
  * FunctionName : Setup_wifi
@@ -487,11 +491,15 @@ void ICACHE_FLASH_ATTR Setup_WiFi(void) {
  ******************************************************************************/
 bool ICACHE_FLASH_ATTR wifi_save_fcfg(uint32 rdmask)
 {
+#ifndef BUILD_FOR_OTA_512k
 	if(rdmask) Read_WiFi_config(&wificonfig, rdmask);
 #if DEBUGSOO > 3
 	print_wifi_config();
 #endif
 	return flash_save_cfg(&wificonfig, ID_CFG_WIFI, sizeof(wificonfig));
+#else
+	return 0;
+#endif
 }
 /******************************************************************************
  * FunctionName : wifi_read_fcfg

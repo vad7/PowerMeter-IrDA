@@ -37,17 +37,60 @@ struct ets_store_wifi_hdr { // Sector flash addr flashchip->chip_size-0x1000  (0
 	uint32 wr_cnt;	// +08 = 0x00000119
 	uint32 xx[2];	// +12 = 28, 28
 	uint32 chk[2];	// +20 = 0x91, 0x91
+#if	DEF_SDK_VERSION >= 2000 // SDK >= 2.0.0
+	uint32 flag2;	// +28 = 0xAA55AA55
+#endif
 };
 //=============================================================================
 // Extern data
 //-----------------------------------------------------------------------------
 struct s_wifi_store { // WiFi config flash addr: flashchip->chip_size - 0x3000 or -0x2000
-#if DEF_SDK_VERSION >= 1400 // SDK >= 1.4.0
+#if DEF_SDK_VERSION >= 2000 // SDK >= 2.0.0
+	uint8	boot_info[8];	//+000  (boot_info[1]) boot_version
+	uint8 	wfmode[4];		//+008
+	uint32	st_ssid_len;	//+012
+	uint8	st_ssid[32];	//+016
+	uint8	field_048[7];	//+048
+	uint8	st_passw[64];	//+055
+	uint8	field_119;		//+119
+	uint8	data_120[32];	//+120
+	uint8	field_152[17];	//+152
+	uint8	field_169;		//+169
+	uint8	field_170[6];	//+170
+	uint32	ap_ssid_len;	//+176
+	uint8	ap_ssid[32];	//+180
+	uint8	ap_passw[64];	//+212
+	uint8	field_276[32];	//+276
+	uint8	field_308;		//+308
+	uint8	wfchl;			//+309
+	uint8	field_310;		//+310
+	uint8	field_311;		//+311
+	uint8	field_312;		//+312
+	uint8	field_313;		//+313
+	uint8	field_314;		//+314
+	uint8	field_315;		//+315
+	uint16	field_316;		//+316
+	uint8	field_318[2];	//+318
+	uint32	st1ssid_len;	//+320
+	uint8	st1ssid[32];	//+324
+	uint8	st1passw[64];	//+356
+	uint8	field_420[400];	//+420
+	uint32	field_820[3];	//+820
+	uint8	field_832[4];	//+832  wifi_station_set_auto_connect
+	uint32  phy_mode;		//+836
+	uint8	field_840[36];	//+840
+	uint16	beacon;			//+876 // 876+532 g_ic+1408
+	uint8	field_878[2];	//+878
+	uint32  field_880;		//+880
+	uint32  field_884;		//+884
+	uint32  field_888;		//+888
+	uint8   field_892[284];	//+888 ..1172
+#elif DEF_SDK_VERSION >= 1400 // SDK >= 1.4.0
 	uint8	boot_info[8];	//+000  g_ic+? 504 boot_version SDK 1.5.2 // 0x3FFEF164
 	uint8 	wfmode[4];		//+008  g_ic.c[0x1D8] (+472) SDK 1.3.0 // 3FFF083C
-	uint32	st_ssid_len;	//+012  g_ic.c +004
-	uint8	st_ssid[32];	//+016  g_ic.c +008
-	uint8	field_048[7];	//+048  g_ic.c +
+	uint32	st_ssid_len;	//+012  g_ic+?
+	uint8	st_ssid[32];	//+016
+	uint8	field_048[7];	//+048
 	uint8	st_passw[64];	//+055
 	uint8	field_119;		//+119
 	uint8	data_120[32];	//+120
@@ -76,7 +119,7 @@ struct s_wifi_store { // WiFi config flash addr: flashchip->chip_size - 0x3000 o
 	uint8	field_832[4];	//+832  wifi_station_set_auto_connect
 	uint32  phy_mode;		//+836 // g_ic+1300 (+514h) // 3FFF0B78
 	uint8	field_840[36];	//+840
-	uint16	beacon;			//+876 // 0x3FFF289C g_ic+1400
+	uint16	beacon;			//+876 // 876+532 g_ic+1408
 	uint8	field_878[2];	//+878
 	uint32  field_880;		//+880
 	uint32  field_884;		//+884
@@ -178,7 +221,10 @@ struct s_wifi_store { // WiFi config flash addr: flashchip->chip_size - 0x3000 o
   size struct s_wifi_store: 1156
   1156 + 500 = 1656 байт
 */
-#if DEF_SDK_VERSION >= 1500 // SDK >= 1.5.0
+#if DEF_SDK_VERSION >= 2000 // SDK >= 2.0.0
+#define wifi_config_size 0x494 // 1172 bytes
+#define g_ic_size (wifi_config_size + 532) // 1704 bytes
+#elif DEF_SDK_VERSION >= 1500 // SDK >= 1.5.0
 #define wifi_config_size 0x484 // 1156 bytes
 #define g_ic_size (wifi_config_size + 504) // 1660 bytes
 #elif DEF_SDK_VERSION >= 1400 // SDK >= 1.4.0
@@ -210,11 +256,13 @@ struct	s_g_ic{
 	uint8	field_02C[84];	//+002C g_ic+44
 	uint32	field_080;	//+0080 g_ic+128
 	uint8	field_084[200];	//+0084 g_ic+132
+	// [0x12c]
 	void *	field_14C;	//+014C g_ic+332
 	uint32	ratetable;		//+0150 g_ic+336
 	uint8	field_154[44];	//+0154 g_ic+340
 	uint32	field_180;		//+0180 g_ic+384
-	void *	field_184;	//+0184 g_ic+388
+	// [0x170..0x180] wifi_get_user_ie
+	void *	field_184;	//+0184 g_ic+388 user_ie_manufacturer_recv_cb
 	uint32	field_188;		//+0188 g_ic+392
 	uint32	field_18C;		//+018C g_ic+396
 	uint32	field_190;	//+0190 g_ic+400
@@ -231,7 +279,10 @@ struct	s_g_ic{
 	uint32	field_1BC;		//+01BC g_ic+444
 	uint32	field_1C0;		//+01C0 g_ic+448
 	uint32	field_1C4;		//+01C4 g_ic+452
-#if DEF_SDK_VERSION >= 1500 // SDK >= 1.4.0
+#if DEF_SDK_VERSION >= 2000 // SDK >= 2.0.0
+	uint32	field_1C8[19]; //+01C8 g_ic+456 532-456
+	// [0x1F8] unregister_send_pkt_freedom_cb
+#elif DEF_SDK_VERSION >= 1500 // SDK >= 1.5.0
 	uint32	field_1C8[12];	//+01C8 g_ic+456 504-456
 #elif DEF_SDK_VERSION >= 1400 // SDK >= 1.4.0
 	uint32	field_1C8[11];	//+01C8 g_ic+456 500-456

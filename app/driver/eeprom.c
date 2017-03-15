@@ -27,4 +27,11 @@ uint8_t eeprom_write_block(uint32_t addr, uint8_t *buffer, uint32_t len)
 	return 0;
 }
 
+#else
+#ifndef USE_I2C
+uint8_t eeprom_dummy(uint32_t addr, uint8_t *buffer, uint32_t len)
+{
+	return 1;
+}
+#endif
 #endif

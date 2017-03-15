@@ -2,7 +2,7 @@
 #define __SNTP_H__
 
 #include "lwip/ip_addr.h"
-#include <time.h>
+#include <localtime.h>
 
 bool sntp_inits(int8_t UTC_offset) ICACHE_FLASH_ATTR;
 void sntp_close(void) ICACHE_FLASH_ATTR;
@@ -13,7 +13,7 @@ void sntp_set_time(time_t t) ICACHE_FLASH_ATTR;
 
 extern ip_addr_t dhcp_sntp_server_address;
 extern int16_t sntp_time_adjust; // sec
-extern uint8 sntp_status; // 1 - ok
+extern int8 sntp_status; // 1,2 = ok, -1 = manual set
 
 void sntp_send_request(ip_addr_t *server_addr) ICACHE_FLASH_ATTR;
 

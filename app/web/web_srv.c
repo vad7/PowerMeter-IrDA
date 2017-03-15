@@ -103,6 +103,7 @@ static const char *httpFileExtensions[] = {
         "\0\0\0"        // HTTP_UNKNOWN
 };
 
+#ifndef BUILD_FOR_OTA_512k
 // Content-type strings corresponding to HTTP_FILE_TYPE
 static const char *httpContentTypes[] = {
 	"text/plain",               // HTTP_TXT       "txt",
@@ -124,6 +125,7 @@ static const char *httpContentTypes[] = {
 	"text/csv",               	// HTTP_CSV       "csv",
     ""  // HTTP_UNKNOWN
 };
+#endif
 /****************************************************************************
   Section:
         Commands and Server Responses
@@ -232,12 +234,12 @@ static const HTTP_RESPONSE ICACHE_RODATA_ATTR HTTPResponse[] ICACHE_RODATA_ATTR 
 		// любая внутренняя ошибка сервера, которая не входит в рамки остальных ошибок класса.
 };
 const char HTTPfsupload[] ICACHE_RODATA_ATTR = "<html><body style='margin:100px'><form method='post' action='/fsupload' enctype='multipart/form-data'><b>File Upload</b><p><input type='file' name='file' size=40> <input type='submit' value='Upload'></form></body></html>";
-#define sizeHTTPfsupload 220
 const char HTTPdefault[] ICACHE_RODATA_ATTR = "<html><h3>ESP8266 Built-in Web server <sup><i>&copy</i></sup></h3></html>";
-#define sizeHTTPdefault 73
+#ifndef BUILD_FOR_OTA_512k
 const char HTTPfserror[] ICACHE_RODATA_ATTR = "<html><h3>Web-disk error. Use <a href='/fsupload'>fsupload</a></h3></html>";
-#define sizeHTTPfserror 62
-
+#else
+const char HTTPfserror[] ICACHE_RODATA_ATTR = "<html><h3>OTA 2 step. Use <a href='/fsupload'>fsupload</a></h3></html>";
+#endif
 const char HTTPAccessControlAllowOrigin[] ICACHE_RODATA_ATTR = "Access-Control-Allow-Origin: *\r\n";
 //        const uint8 *HTTPCacheControl = "Cache-Control:";
 const char *HTTPContentLength = "Content-Length:";
@@ -305,6 +307,8 @@ LOCAL WEB_SRV_CONN * ICACHE_FLASH_ATTR ReNew_web_conn(TCP_SERV_CONN *ts_conn)
 	}
     return web_conn;
 }
+
+#ifndef BUILD_FOR_OTA_512k
 //=============================================================================
 // Authorization: Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==\n"
 // The resulting string is then encoded using the RFC2045-MIME variant of Base64,
@@ -332,16 +336,17 @@ LOCAL bool ICACHE_FLASH_ATTR CheckAuthorization(uint8* base64str)
 		len = ets_strlen((char*)ppsw);
 		ppsw[len++] = ':';
 		cmpcpystr(&ppsw[len], wificonfig.ap.config.password, '\0','\0', 64);
-#if DEBUGSOO > 1
+#if DEBUGSOO > 5
 		os_printf("'%s' ", pbuf);
 #endif
-#if DEBUGSOO > 2
+#if DEBUGSOO > 5
 		os_printf("<%s>[%u] ", ppsw, declen);
 #endif
 		if(os_strncmp(pbuf, (char *)ppsw , declen) == 0) return true;
 	};
 	return false;
 }
+
 //=============================================================================
 // Parse and decode variables with specified delimiter and call web_int_vars()
 // Cookie: set_ramaddr=0x3FFF0000; set_ramdata=0x12345678; start=0x40000000; stop=0x40000100
@@ -370,6 +375,10 @@ LOCAL void ICACHE_FLASH_ATTR web_parse_vars(TCP_SERV_CONN *ts_conn, uint8 *vars,
 	    }
 	}
 }
+#else
+LOCAL bool CheckAuthorization(uint8* base64str) { return true; }
+LOCAL void web_parse_vars(TCP_SERV_CONN *ts_conn, uint8 *vars, uint32 vars_len, uint8 start_char, uint8 end_char) { }
+#endif
 //=============================================================================
 #define web_parse_cookie(CurHTTP, ts_conn) web_parse_vars(ts_conn, (CurHTTP)->pcookie, (CurHTTP)->cookie_len, '\0', ';')
 #define web_parse_uri_vars(CurHTTP, ts_conn) web_parse_vars(ts_conn, (CurHTTP)->puri, (CurHTTP)->uri_len, '?', '&')
@@ -476,7 +485,7 @@ parse_header(HTTP_CONN *CurHTTP, TCP_SERV_CONN *ts_conn)
 			// else CurHTTP->ver = 0x00;
 		};
 	};
-#if DEBUGSOO > 3
+#if DEBUGSOO > 5
 	os_printf("http_ver=%02x ", CurHTTP->httpver);
 #endif
 	if(CurHTTP->httpver < 0x10) { // HTTP/0.9 ?
@@ -518,7 +527,7 @@ parse_header(HTTP_CONN *CurHTTP, TCP_SERV_CONN *ts_conn)
     		return false;
     	}
         uint32 cnlen = atoi(pstr);
-#if DEBUGSOO > 1
+#if DEBUGSOO > 5
         os_printf("content_len = %d of %d ", cnlen, CurHTTP->content_len);
 #endif
         if(cnlen) {
@@ -542,7 +551,7 @@ parse_header(HTTP_CONN *CurHTTP, TCP_SERV_CONN *ts_conn)
                    			}
                         	uint8 x = *pend;
                         	*pend = '\0';
-#if DEBUGSOO > 4
+#if DEBUGSOO > 5
                         	os_printf("[%s] ", pstr);
 #endif
                    			os_memcpy(pupload->boundary, pstr, MAXLENBOUNDARY);
@@ -559,7 +568,7 @@ parse_header(HTTP_CONN *CurHTTP, TCP_SERV_CONN *ts_conn)
             };
         	if((!CheckSCB(SCB_BNDR)) && cnlen > CurHTTP->content_len) { // обычный контент и недокачан заголовок? да.
         		CurHTTP->content_len = cnlen;
-#if DEBUGSOO > 2
+#if DEBUGSOO > 5
             	os_printf("wait content ");
 #endif
         		CurHTTP->httpStatus = 413; // 413 Request Entity Too Large // пока так
@@ -596,13 +605,13 @@ parse_header(HTTP_CONN *CurHTTP, TCP_SERV_CONN *ts_conn)
         	if(pend != NULL) {
         		CurHTTP->pcookie = pstr;
         		CurHTTP->cookie_len = pend - pstr;
-#if DEBUGSOO > 3
+#if DEBUGSOO > 5
         		*pend = '\0';
 				os_printf("cookie:[%s] ", pstr);
         		*pend = '\r';
 #endif
         	}
-#if DEBUGSOO > 3
+#if DEBUGSOO > 4
            	else os_printf("cookie not crlf! ");
 #endif
         };
@@ -635,7 +644,7 @@ parse_header(HTTP_CONN *CurHTTP, TCP_SERV_CONN *ts_conn)
 LOCAL void ICACHE_FLASH_ATTR web_inc_fp(WEB_SRV_CONN *web_conn, WEBFS_HANDLE fp)
 {
 	if(web_conn->bffiles[3] != WEBFS_INVALID_HANDLE) {
-	#if DEBUGSOO > 1
+	#if DEBUGSOO > 5
 		os_printf("cf%d ", web_conn->bffiles[3]);
 	#endif
 		if(web_conn->bffiles[3] <= WEBFS_MAX_HANDLE) {
@@ -662,7 +671,7 @@ bool ICACHE_FLASH_ATTR web_inc_fopen(TCP_SERV_CONN *ts_conn, uint8 *cFile)
 	    return false; // такое не поддерживается в "~inc:filename~"
 	};
 	WEBFS_HANDLE fp = WEBFSOpen(cFile);
-#if DEBUGSOO > 1
+#if DEBUGSOO > 5
 	os_printf("of%d[%s] ", fp, cFile);
 #endif
 	if(fp != WEBFS_INVALID_HANDLE) {
@@ -694,7 +703,7 @@ bool ICACHE_FLASH_ATTR web_inc_fopen(TCP_SERV_CONN *ts_conn, uint8 *cFile)
 bool ICACHE_FLASH_ATTR web_inc_fclose(WEB_SRV_CONN *web_conn)
 {
 	if(web_conn->bffiles[0] != WEBFS_INVALID_HANDLE) {
-#if DEBUGSOO > 1
+#if DEBUGSOO > 5
 		os_printf("cf%d ", web_conn->bffiles[0]);
 #endif
 		if(web_conn->bffiles[0] <= WEBFS_MAX_HANDLE) {
@@ -738,7 +747,7 @@ LOCAL bool ICACHE_FLASH_ATTR web_cdns_no_redir(HTTP_CONN *CurHTTP, TCP_SERV_CONN
 	  && CurHTTP->head_len != 0) {
 		uint8 * ps = head_find_ctr(CurHTTP, HTTPHost, sizeHTTPHost, 7);
 		if(ps != NULL) {
-#if DEBUGSOO > 1
+#if DEBUGSOO > 5
 		os_printf("Host: '%s' ", ps);
 #endif
 		uint8 strip[4*4];
@@ -769,9 +778,9 @@ LOCAL bool ICACHE_FLASH_ATTR webserver_open_file(HTTP_CONN *CurHTTP, TCP_SERV_CO
 		if(CurHTTP->pFilename[1] == '\0') {
 			if(isWEBFSLocked) {
 				web_inc_fp(web_conn, WEBFS_NODISK_HANDLE); // желательно дописать ответ, что нет диска.
-				web_conn->content_len = sizeHTTPfserror;
+				web_conn->content_len = sizeof(HTTPfserror);
 				CurHTTP->fileType = HTTP_HTML;
-#if DEBUGSOO > 1
+#if DEBUGSOO > 5
 				os_printf("of%d[%s] ", web_conn->webfile, CurHTTP->pFilename);
 #endif
 				return true;
@@ -789,9 +798,9 @@ LOCAL bool ICACHE_FLASH_ATTR webserver_open_file(HTTP_CONN *CurHTTP, TCP_SERV_CO
 			os_memcpy(pstr, &CurHTTP->pFilename[1], MAX_FILE_NAME_SIZE-1);
 			if(rom_xstrcmp(pstr, web_cgi_fname)) {
 				web_inc_fp(web_conn, WEBFS_WEBCGI_HANDLE);
-				web_conn->content_len = sizeHTTPdefault;
+				web_conn->content_len = sizeof(HTTPdefault);
 				CurHTTP->fileType = HTTP_HTML;
-#if DEBUGSOO > 1
+#if DEBUGSOO > 5
 				os_printf("of%d[%s] ", web_conn->webfile, CurHTTP->pFilename);
 #endif
 				return true;
@@ -799,9 +808,9 @@ LOCAL bool ICACHE_FLASH_ATTR webserver_open_file(HTTP_CONN *CurHTTP, TCP_SERV_CO
 			else if(rom_xstrcmp(pstr, fsupload_fname)) {
 				SetSCB(SCB_AUTH);
 				web_inc_fp(web_conn, WEBFS_UPLOAD_HANDLE);
-				web_conn->content_len = sizeHTTPfsupload;
+				web_conn->content_len = sizeof(HTTPfsupload);
 				CurHTTP->fileType = HTTP_HTML;
-#if DEBUGSOO > 1
+#if DEBUGSOO > 5
 				os_printf("of%d[%s] ", web_conn->webfile, CurHTTP->pFilename);
 #endif
 				return true;
@@ -831,30 +840,30 @@ LOCAL bool ICACHE_FLASH_ATTR webserver_open_file(HTTP_CONN *CurHTTP, TCP_SERV_CO
 }
 /******************************************************************************
 *******************************************************************************/
-LOCAL void ICACHE_FLASH_ATTR web_send_fnohanle(TCP_SERV_CONN *ts_conn) {
+void ICACHE_FLASH_ATTR web_send_fnohanle(TCP_SERV_CONN *ts_conn) {
 	WEB_SRV_CONN *web_conn = (WEB_SRV_CONN *)ts_conn->linkd;
 	uint32 pdata = 0;
-	uint8 pbuf[mMAX(mMAX(sizeHTTPdefault,sizeHTTPfserror), sizeHTTPfsupload)];
+	uint8 pbuf[mMAX(mMAX(sizeof(HTTPdefault),sizeof(HTTPfserror)), sizeof(HTTPfsupload))];
 	uint32 size = 0;
 	switch(web_conn->webfile) {
 	case WEBFS_WEBCGI_HANDLE:
 		pdata = (uint32)((void *)HTTPdefault);
-		size = sizeHTTPdefault;
+		size = sizeof(HTTPdefault);
 		break;
 	case WEBFS_UPLOAD_HANDLE:
 		pdata = (uint32)((void *)HTTPfsupload);
-		size = sizeHTTPfsupload;
+		size = sizeof(HTTPfsupload);
 		break;
 	case WEBFS_NODISK_HANDLE:
 		pdata = (uint32)((void *)HTTPfserror);
-		size = sizeHTTPfserror;
+		size = sizeof(HTTPfserror);
 		break;
 	}
 	if(pdata != 0 && size != 0) {
 		spi_flash_read(pdata & MASK_ADDR_FLASH_ICACHE_DATA, pbuf, size);
 		tcpsrv_int_sent_data(ts_conn, pbuf, size);
 	}
-#if DEBUGSOO > 1
+#if DEBUGSOO > 5
 	os_printf("%u ", size);
 #endif
 	SetSCB(SCB_FCLOSE|SCB_DISCONNECT);
@@ -866,6 +875,8 @@ int32 ICACHE_FLASH_ATTR web_find_cbs(uint8 * chrbuf, int32 len) {
   for(i = 0; i < len; i++)  if(chrbuf[i] == '~')  return i;
   return -1;
 }
+
+#ifndef BUILD_FOR_OTA_512k
 
 /******************************************************************************
  * FunctionName : webserver_send_fdata
@@ -880,7 +891,7 @@ LOCAL void ICACHE_FLASH_ATTR webserver_send_fdata(TCP_SERV_CONN *ts_conn) {
 		SetSCB(SCB_FCLOSE|SCB_DISCONNECT);
 		return;
 	}
-#if DEBUGSOO > 1
+#if DEBUGSOO > 5
 	os_printf("send: ");
 #endif
 	set_cpu_clk();
@@ -888,11 +899,11 @@ LOCAL void ICACHE_FLASH_ATTR webserver_send_fdata(TCP_SERV_CONN *ts_conn) {
 	web_conn->msgbufsize = tcp_sndbuf(ts_conn->pcb);
 
 #if DEBUGSOO > 5
-	os_printf("sndbuf=%u ", web_conn->msgbufsize);
+	os_printf("Heap=%u,sndbuf=%u ", system_get_free_heap_size(), web_conn->msgbufsize);
 #endif
 
 	if (web_conn->msgbufsize < MIN_SEND_SIZE) {
-#if DEBUGSOO > 1
+#if DEBUGSOO > 5
 		os_printf("sndbuf=%u! ", web_conn->msgbufsize);
 		if(ts_conn->flag.wait_sent) os_printf("wait_sent! "); // блок передан?
 #endif
@@ -927,7 +938,7 @@ LOCAL void ICACHE_FLASH_ATTR webserver_send_fdata(TCP_SERV_CONN *ts_conn) {
 	else { // парсинг потока передачи, Парсинг msgbuf, замена переменных ~x~, вызов callback
 		do { // начинаем с пустого буфера
 			if(CheckSCB(SCB_RETRYCB)) { // повторный callback? да
-				#if DEBUGSOO > 2
+				#if DEBUGSOO > 5
 					os_printf("rcb ");
 				#endif
 				if(web_conn->func_web_cb != NULL) web_conn->func_web_cb(ts_conn);
@@ -979,10 +990,10 @@ LOCAL void ICACHE_FLASH_ATTR webserver_send_fdata(TCP_SERV_CONN *ts_conn) {
 		} // набираем буфер до (web_conn->msgbufsize - SCB_SEND_SIZE)
 		while((web_conn->msgbufsize - web_conn->msgbuflen >= SCB_SEND_SIZE)&&(!CheckSCB(SCB_FCLOSE | SCB_RETRYCB | SCB_DISCONNECT)));
 	};
-#if DEBUGSOO > 3
-	os_printf("#%04x %d ", web_conn->webflag, web_conn->msgbuflen);
-#elif DEBUGSOO > 1
-	os_printf("%u ", web_conn->msgbuflen);
+#if DEBUGSOO > 6
+    os_printf("#%04x,%d -> %s\n", web_conn->webflag, web_conn->msgbuflen, web_conn->msgbuf);
+#elif DEBUGSOO > 5
+	os_printf("#%04x,%d ", web_conn->webflag, web_conn->msgbuflen);
 #endif
 	if(web_conn->msgbuflen) {
 		web_conn->content_len -= web_conn->msgbuflen; // пока только для инфы
@@ -1014,16 +1025,14 @@ web_print_headers(HTTP_CONN *CurHTTP, TCP_SERV_CONN *ts_conn)
 {
 	WEB_SRV_CONN *web_conn = (WEB_SRV_CONN *)ts_conn->linkd;
 	HTTP_RESPONSE *CurResp = (HTTP_RESPONSE *)HTTPResponse;
-#if DEBUGSOO > 3
+#if DEBUGSOO > 5
     os_printf("prh#%04x,%d,%d ", web_conn->webflag, CurHTTP->httpStatus, CurHTTP->fileType);
 #endif
     web_conn->msgbuf = (uint8 *)os_malloc(HTTP_SEND_SIZE);
     if(web_conn->msgbuf == NULL)
     {
-#if DEBUGSOO == 1
+#if DEBUGSOO > 0
         os_printf("web: out of memory!\n");
-#elif DEBUGSOO > 1
-        os_printf("out of memory! ");
 #endif
     	SetSCB(SCB_FCLOSE | SCB_DISCONNECT);
         return;
@@ -1084,16 +1093,16 @@ web_print_headers(HTTP_CONN *CurHTTP, TCP_SERV_CONN *ts_conn)
                     	}
                     };
                     // Output the cache-control + ContentLength
-                    if(CheckSCB(SCB_FCALBACK)) { // длина неизветсна
+                    if(CheckSCB(SCB_FCALBACK)) { // длина не известна
                     	// file is callback index
                     	tcp_strcpy_fd("Cache-Control: no-store, no-cache, must-revalidate, max-age=0\r\n");
                     	if(CurHTTP->httpver >= 0x11) SetSCB(SCB_CHUNKED);
                     }
-                    else { // длина изветсна
+                    else { // длина известна
                     	tcp_puts_fd("%s %d\r\n", HTTPContentLength, web_conn->content_len);
                     	if(CurResp->status == 200 && (!isWEBFSLocked) && web_conn->bffiles[0] != WEBFS_WEBCGI_HANDLE) {
                     		// lifetime (sec) of static responses as string 60*60*24*14=1209600"
-                        	tcp_puts_fd("Cache-Control: smax-age=%d\r\n", FILE_CACHE_MAX_AGE_SEC);
+                        	tcp_puts_fd("Cache-Control: max-age=%d\r\n", FILE_CACHE_MAX_AGE_SEC);
                     	}
                     	else {
                     		tcp_strcpy_fd("Cache-Control: no-store, no-cache, must-revalidate, max-age=0\r\n");
@@ -1118,10 +1127,10 @@ web_print_headers(HTTP_CONN *CurHTTP, TCP_SERV_CONN *ts_conn)
 #ifdef WEBSOCKET_ENA
     }
 #endif
-#if DEBUGSOO > 3
+#if DEBUGSOO > 6
+    os_printf("#%04x (%d) %d -> %s\n", web_conn->webflag, web_conn->msgbuflen, CurHTTP->httpStatus, web_conn->msgbuf);
+#elif DEBUGSOO > 5
     os_printf("#%04x (%d) %d ", web_conn->webflag, web_conn->msgbuflen, CurHTTP->httpStatus);
-#elif DEBUGSOO > 1
-    os_printf("head[%d]:%d ", web_conn->msgbuflen, CurHTTP->httpStatus);
 #endif
     if(web_conn->msgbuflen) {
         if(CheckSCB(SCB_DISCONNECT)) SetSCB(SCB_CLOSED);
@@ -1133,6 +1142,40 @@ web_print_headers(HTTP_CONN *CurHTTP, TCP_SERV_CONN *ts_conn)
     os_free(web_conn->msgbuf);
     web_conn->msgbuf = NULL;
 }
+#else
+void webserver_send_fdata(TCP_SERV_CONN *ts_conn) {
+	WEB_SRV_CONN *web_conn = (WEB_SRV_CONN *)ts_conn->linkd;
+	if(web_conn->webfile == WEBFS_INVALID_HANDLE) {
+		SetSCB(SCB_FCLOSE|SCB_DISCONNECT);
+		return;
+	}
+	web_conn->msgbufsize = tcp_sndbuf(ts_conn->pcb);
+	if(web_conn->msgbufsize < MIN_SEND_SIZE) {
+		ts_conn->pcb->flags &= ~TF_NODELAY;
+		tcpsrv_int_sent_data(ts_conn, (uint8 *)ts_conn, 0);
+		return;
+	}
+	if((web_conn->webfile > WEBFS_MAX_HANDLE)&&(!CheckSCB(SCB_RETRYCB)))  {
+		web_send_fnohanle(ts_conn);
+		return;
+	}
+}
+void web_print_headers(HTTP_CONN *CurHTTP, TCP_SERV_CONN *ts_conn)
+{
+	WEB_SRV_CONN *web_conn = (WEB_SRV_CONN *)ts_conn->linkd;
+    web_conn->msgbuf = (uint8 *)os_malloc(HTTP_SEND_SIZE);
+    if(web_conn->msgbuf)
+    {
+        tcp_puts_fd("HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Type: text/html\r\nContent-Length: %u\r\n\r\n", web_conn->content_len);
+        tcpsrv_int_sent_data(ts_conn, web_conn->msgbuf, web_conn->msgbuflen);
+		#ifdef USE_WEB_NAGLE
+        	ts_conn->flag.nagle_disabled = 1;
+		#endif
+        os_free(web_conn->msgbuf);
+        web_conn->msgbuf = NULL;
+    }
+}
+#endif
 /******************************************************************************/
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
@@ -1216,11 +1259,12 @@ typedef enum
 	UPL_ST_EXTMEM = 7 // загрузка во внешнюю EEPROM/FRAM
 } UPLOAD_FILE_STATUS;
 
-const char disk_ok_filename[] ICACHE_RODATA_ATTR = "/disk_ok.htm";
-const char disk_err1_filename[] ICACHE_RODATA_ATTR = "/disk_er1.htm";
-const char disk_err2_filename[] ICACHE_RODATA_ATTR = "/disk_er2.htm";
-const char disk_err3_filename[] ICACHE_RODATA_ATTR = "/disk_er3.htm";
+const char disk_ok_filename[] ICACHE_RODATA_ATTR = "/disk_ok.htm\0";
+const char disk_err1_filename[] ICACHE_RODATA_ATTR = "/disk_er1.htm\0";
+const char disk_err2_filename[] ICACHE_RODATA_ATTR = "/disk_er2.htm\0";
+const char disk_err3_filename[] ICACHE_RODATA_ATTR = "/disk_er3.htm\0";
 const char sysconst_filename[] ICACHE_RODATA_ATTR = "sysconst";
+const char settings_filename[] ICACHE_RODATA_ATTR = "settings";
 #ifdef USE_OVERLAY
 const char overlay_filename[] ICACHE_RODATA_ATTR = "overlay";
 #endif
@@ -1228,6 +1272,7 @@ const char sector_filename[] ICACHE_RODATA_ATTR = "fsec_";
 #define sector_filename_size 5
 const char file_label[] ICACHE_RODATA_ATTR = "file";
 const char eeprom_filename[] ICACHE_RODATA_ATTR = "eeprom";
+
 // OTA
 #define OTA_flash_struct_id 0x2341544F // 'OTA#'
 #define firmware_start_magic 0xE9
@@ -1236,8 +1281,9 @@ typedef struct __packed {
 	uint32 image_addr;
 	uint32 image_sectors;
 } OTA_flash_struct;
-uint32	file_load_size;
-// Writes(fwrite=1) or clear(0) OTA header, return 0 - ok
+uint32 file_load_size;
+uint32 file_load_addr;
+// Writes(fwrite=1) or clear OTA header (fwrite=0), return 0 - ok
 int ICACHE_FLASH_ATTR OTA_write_header(uint8 fwrite)
 {
 	uint32 *tmpbuf = os_malloc(flashchip_sector_size);
@@ -1246,7 +1292,7 @@ int ICACHE_FLASH_ATTR OTA_write_header(uint8 fwrite)
 	OTA_flash_struct *OTA = (OTA_flash_struct *)((uint8 *)tmpbuf + MAX_SYS_CONST_BLOCK);
 	if(fwrite) {
 		OTA->id = OTA_flash_struct_id;
-		OTA->image_addr = WEBFS_base_addr();
+		OTA->image_addr = file_load_addr;
 		OTA->image_sectors = file_load_size / flashchip_sector_size + 1;
 		#if DEBUGSOO > 4
 			os_printf("\nFirmware loaded to %x, %d(%d)\n", OTA->image_addr, file_load_size, OTA->image_sectors);
@@ -1276,21 +1322,21 @@ LOCAL int ICACHE_FLASH_ATTR upload_boundary(TCP_SERV_CONN *ts_conn) // HTTP_UPLO
 		WDT_FEED = WDT_FEED_MAGIC; // WDT
 		pstr = ts_conn->pbufi;
 		len = ts_conn->sizei;
-#if DEBUGSOO > 4
+#if DEBUGSOO > 2
 		os_printf("bufi[%u]%u, cont:%u ", ts_conn->sizei, ts_conn->cntri, web_conn->content_len);
 #endif
 		if(len < (8 + pupload->sizeboundary)) return 0; // разделитель (boundary) не влезет - докачивать буфер
 		switch(pupload->status) {
 			case UPL_ST_FIND: // поиск boundary
 			{
-#if DEBUGSOO > 4
+#if DEBUGSOO > 2
 				os_printf("find_bndr ");
 #endif
 				pnext = web_strnstr(pstr, CRLF CRLF , len);
 				if(pnext == NULL) return 0; // докачивать
 				len = pnext - pstr;
 				ret = find_boundary(pupload, pstr, len);
-#if DEBUGSOO > 4
+#if DEBUGSOO > 2
 				os_printf("len=%u,ret=%u ", len, ret );
 #endif
 				if(ret != 1) return ret;
@@ -1307,7 +1353,7 @@ LOCAL int ICACHE_FLASH_ATTR upload_boundary(TCP_SERV_CONN *ts_conn) // HTTP_UPLO
 				 	if(pcmp == NULL) return 400; // неизвестный формат content-а
 				};
 				pstr = pcmp;
-#if DEBUGSOO > 4
+#if DEBUGSOO > 2
 				os_printf("name:'%s' ", pupload->name);
 #endif
 				if(pstr >= pnext) return 400; // неизвестный формат content-а
@@ -1324,7 +1370,7 @@ LOCAL int ICACHE_FLASH_ATTR upload_boundary(TCP_SERV_CONN *ts_conn) // HTTP_UPLO
 				};
 				len += 4;
 				pupload->status++;
-#if DEBUGSOO > 4
+#if DEBUGSOO > 2
 					os_printf("trim#%u\n", len );
 #endif
 				ts_conn->cntri += len; // далее идут данные
@@ -1334,7 +1380,7 @@ LOCAL int ICACHE_FLASH_ATTR upload_boundary(TCP_SERV_CONN *ts_conn) // HTTP_UPLO
 			}
 			case UPL_ST_NEW: // прием данных, первый заход, проверка форматов и т.д.
 			{
-#if DEBUGSOO > 4
+#if DEBUGSOO > 2
 				os_printf("tst,fn='%s'(%s) ", pupload->filename, pupload->name);
 #endif
 				if(pupload->filename[0]!='\0') { // загрузка файла?
@@ -1346,11 +1392,21 @@ LOCAL int ICACHE_FLASH_ATTR upload_boundary(TCP_SERV_CONN *ts_conn) // HTTP_UPLO
 								|| (file_load_size < dhead->disksize)) {
 							if(*pstr == firmware_start_magic) {
 								// OTA firmware upload
-								if(OTA_write_header(0)) return 500; // clear OTA header
-								pupload->fsize = file_load_size;
-								pupload->status = UPL_ST_FIRMWARE; // загрузка прошивки на место WEBFS
+								file_load_addr = WEBFS_base_addr();
+								uint32 n = (file_load_addr + WEBFS_current_size() + 0xFFF) & 0xFF000;
+								if(n + file_load_size + (FMEMORY_SCFG_BANKS + SDK_CFG_FLASH_SEC) * flashchip_sector_size <= FIX_SDK_FLASH_SIZE)
+									file_load_addr = n;
+								#if DEBUGSOO > 2
+									os_printf("\nLoad firmware at %u, size: %u, max: %u\n", file_load_addr, file_load_size, FMEMORY_SCFG_BASE_ADDR);
+								#endif
+								if(file_load_addr + file_load_size <= FMEMORY_SCFG_BASE_ADDR) {
+									pupload->faddr = file_load_addr;
+									pupload->fsize = file_load_size;
+									pupload->status = UPL_ST_FIRMWARE; // загрузка прошивки на место WEBFS
+									if(OTA_write_header(0)) return 500; // clear OTA header
+								} else goto xfirmware_file_err;
 							} else {
-								if(isWEBFSLocked) return 400;
+xfirmware_file_err:				if(isWEBFSLocked) return 400;
 								SetSCB(SCB_REDIR);
 								rom_xstrcpy(pupload->filename, disk_err1_filename); // os_memcpy(pupload->filename,"/disk_er1.htm\0",14); // неверный формат
 								return 200;
@@ -1363,12 +1419,12 @@ LOCAL int ICACHE_FLASH_ATTR upload_boundary(TCP_SERV_CONN *ts_conn) // HTTP_UPLO
 								return 200;
 							};
 							pupload->fsize = dhead->disksize;
-							#if DEBUGSOO > 4
-								os_printf("updisk[%u]=ok,m=%u ", dhead->disksize, WEBFS_max_size() );
-							#endif
 							pupload->status = UPL_ST_WEBFS; // = 3 загрузка WebFileSystem во flash
+							pupload->faddr = WEBFS_base_addr();
 						}
-						pupload->faddr = WEBFS_base_addr();
+						#if DEBUGSOO > 4
+							os_printf("upload%d to 0x%X, %d\n", pupload->status, pupload->faddr, pupload->fsize);
+						#endif
 						isWEBFSLocked = true;
 						break;
 					}
@@ -1406,6 +1462,7 @@ LOCAL int ICACHE_FLASH_ATTR upload_boundary(TCP_SERV_CONN *ts_conn) // HTTP_UPLO
 						break;
 					}
 #endif
+#ifndef BUILD_FOR_OTA_512k
 					else if(rom_xstrcmp(pupload->name, sysconst_filename)) {
 						pupload->fsize = SIZE_SYS_CONST;
 						pupload->faddr = faddr_esp_init_data_default;
@@ -1418,12 +1475,19 @@ LOCAL int ICACHE_FLASH_ATTR upload_boundary(TCP_SERV_CONN *ts_conn) // HTTP_UPLO
 						pupload->status = UPL_ST_FLASH; // = 2 загрузка файла сектора во flash
 						break;
 					}
+					else if(rom_xstrcmp(pupload->name, settings_filename)) { // cfg
+						pupload->fsize = FMEMORY_SCFG_BANK_SIZE * FMEMORY_SCFG_BANKS;
+						pupload->faddr = FMEMORY_SCFG_BASE_ADDR;
+						pupload->status = UPL_ST_FLASH; // = 2 загрузка файла во flash
+						break;
+					}
 					else if(rom_xstrcmp(pupload->name, eeprom_filename)) {
 						pupload->fsize = cfg_glo.Fram_Size;
 						pupload->faddr = 0;
 						pupload->status = UPL_ST_EXTMEM;
 						break;
 					}
+#endif
 					if(isWEBFSLocked) return 400;
 					SetSCB(SCB_REDIR);
 					rom_xstrcpy(pupload->filename, disk_err3_filename); // os_memcpy(pupload->filename,"/disk_er3.htm\0",14); // неизвестный тип
@@ -1433,7 +1497,7 @@ LOCAL int ICACHE_FLASH_ATTR upload_boundary(TCP_SERV_CONN *ts_conn) // HTTP_UPLO
 					uint8 *pcmp = web_strnstr(pstr, CRLF, len);
 					if(pcmp == NULL) return 0; // докачивать
 					ret = find_boundary(pupload, pstr, len);
-#if DEBUGSOO > 4
+#if DEBUGSOO > 2
 					os_printf("ret=%u ", ret );
 #endif
 					if((ret != 1 && ret != 200)) { // не найден конец или новый boundary?
@@ -1445,7 +1509,7 @@ LOCAL int ICACHE_FLASH_ATTR upload_boundary(TCP_SERV_CONN *ts_conn) // HTTP_UPLO
 					// найден следующий boundary
 					len = pupload->pbndr - ts_conn->pbufi;
 					pupload->status = UPL_ST_FIND; // = 0 найден следующий boundary
-#if DEBUGSOO > 4
+#if DEBUGSOO > 2
 					os_printf("trim#%u\n", len );
 #endif
 					ts_conn->cntri += len; // далее идут данные
@@ -1461,13 +1525,13 @@ LOCAL int ICACHE_FLASH_ATTR upload_boundary(TCP_SERV_CONN *ts_conn) // HTTP_UPLO
 			case UPL_ST_FIRMWARE: // загрузка прошивки
 			case UPL_ST_EXTMEM: // загрузка во внешнюю EEPROM/FRAM
 			{
-#if DEBUGSOO > 4
+#if DEBUGSOO > 2
 				os_printf("fdata ");
 #endif
 				uint32 block_size = mMIN(max_len_buf_write_flash + 8 + pupload->sizeboundary, web_conn->content_len);
 				if(ts_conn->sizei < block_size) return 0; // докачивать
 				ret = find_boundary(pupload, pstr, block_size);
-#if DEBUGSOO > 4
+#if DEBUGSOO > 2
 				os_printf("ret=%u ", ret);
 #endif
 				if((ret == 1 || ret == 200)) { // найден конец или новый boundary?
@@ -1480,70 +1544,58 @@ LOCAL int ICACHE_FLASH_ATTR upload_boundary(TCP_SERV_CONN *ts_conn) // HTTP_UPLO
 					len = mMIN(len, MAX_EEPROM_BLOCK_LEN);
 					block_size = mMIN(pupload->fsize, len);
 					#if DEBUGSOO > 4
-						os_printf("\nlen=%d, block_size=%d, content_len=%d, sizeboundary= %d, ret=%d, data = %d, load=%d", len, block_size, web_conn->content_len, pupload->sizeboundary, ret, pupload->pbndr - ts_conn->pbufi, ts_conn->sizei);
-						while((UART0_STATUS >> UART_TXFIFO_CNT_S) & UART_TXFIFO_CNT);
+						os_printf("\nWrite to 0x%x, len=%d, block_size=%d, c_len=%d, sbry= %d, r=%d, d=%d, l=%d", pupload->faddr, len, block_size, web_conn->content_len, pupload->sizeboundary, ret, pupload->pbndr - ts_conn->pbufi, ts_conn->sizei);
+						//while((UART0_STATUS >> UART_TXFIFO_CNT_S) & UART_TXFIFO_CNT);
 					#endif
 					if(block_size) eeprom_write_block(pupload->faddr, pstr, block_size);
 				} else {
 					block_size = mMIN(pupload->fsize, len);
-#if (DEF_SDK_VERSION >= 1000) && (DEF_SDK_VERSION <= 1012)
-#define SET_CPU_CLK_SPEED 1
-					if(syscfg.cfg.b.hi_speed_enable) {
-						ets_intr_lock();
-						REG_CLR_BIT(0x3ff00014, BIT(0));
-						os_update_cpu_frequency(80);
-						ets_intr_unlock();
-					}
-#endif
-					#if DEBUGSOO > 4
-						os_printf("\nlen=%d, block_size=%d, content_len=%d, sizeboundary= %d, ret=%d, data = %d, load=%d", len, block_size, web_conn->content_len, pupload->sizeboundary, ret, pupload->pbndr - ts_conn->pbufi, ts_conn->sizei);
-						while((UART0_STATUS >> UART_TXFIFO_CNT_S) & UART_TXFIFO_CNT);
-					#endif
 					if(block_size) { // идут данные файла
 //						tcpsrv_unrecved_win(ts_conn); // для ускорения, пока стрирается-пишется уже обновит окно (включено в web_rx_buf)
-						// DISABLE GPIO interrupts!!
-						ets_isr_mask(1 << ETS_GPIO_INUM);
 						//
-						if(pupload->faddr >= FLASH_MIN_SIZE && (pupload->status == UPL_ST_WEBFS || pupload->status == UPL_ST_FIRMWARE)) { // WebFS or Flash
-							if((pupload->faddr & 0x0000FFFF)==0) {
-								#if DEBUGSOO > 2
-									os_printf("Clear flash page addr %p... ", pupload->faddr);
-									while((UART0_STATUS >> UART_TXFIFO_CNT_S) & UART_TXFIFO_CNT);
-								#endif
-								spi_flash_erase_block(pupload->faddr>>16);
-							}
-						}
-						else if((pupload->faddr & 0x00000FFF) == 0) {
-							#if DEBUGSOO > 2
-								os_printf("Clear flash sector addr %p... ", pupload->faddr);
-								while((UART0_STATUS >> UART_TXFIFO_CNT_S) & UART_TXFIFO_CNT);
+						#if DEBUGSOO > 4
+							os_printf("\nWrite to 0x%x, len=%d, block_size=%d, c_len=%d, sbry= %d, r=%d, d=%d, l=%d", pupload->faddr, len, block_size, web_conn->content_len, pupload->sizeboundary, ret, pupload->pbndr - ts_conn->pbufi, ts_conn->sizei);
+//							#ifdef USE_OVERLAY
+//								if(ovl_call != NULL) ovl_call(-1);
+//							#endif
+							//while((UART0_STATUS >> UART_TXFIFO_CNT_S) & UART_TXFIFO_CNT); while((UART1_STATUS >> UART_TXFIFO_CNT_S) & UART_TXFIFO_CNT);
+						#endif
+						ets_isr_mask((1<<ETS_GPIO_INUM) | (1<<ETS_UART_INUM)); // DISABLE interrupts!
+// Clear page disabled
+//						if(pupload->faddr >= sdk_flashchip_size && (pupload->status == UPL_ST_WEBFS || pupload->status == UPL_ST_FIRMWARE)
+//								&& (pupload->faddr & 0x0000FFFF) == 0) { // WebFS or Flash
+//							#if DEBUGSOO > 5
+//								os_printf("Clear page %p... ", pupload->faddr);
+//								//while((UART0_STATUS >> UART_TXFIFO_CNT_S) & UART_TXFIFO_CNT);
+//							#endif
+//							spi_flash_erase_block(pupload->faddr>>16);
+//						} else
+						if((pupload->faddr & (flashchip_sector_size - 1)) == 0) {
+							#if DEBUGSOO > 5
+								os_printf("Clear sector %p... ", pupload->faddr);
+								//while((UART0_STATUS >> UART_TXFIFO_CNT_S) & UART_TXFIFO_CNT);
 							#endif
-							spi_flash_erase_sector(pupload->faddr>>12);
+							spi_flash_erase_sector(pupload->faddr / flashchip_sector_size);
 						}
-						#if DEBUGSOO > 2
-							os_printf("Write flash addr:%p[0x%04x]\n", pupload->faddr, block_size);
-							while((UART0_STATUS >> UART_TXFIFO_CNT_S) & UART_TXFIFO_CNT);
+						#if DEBUGSOO > 5
+							os_printf("Write addr:%p[0x%04x]\n", pupload->faddr, block_size);
+							//while((UART0_STATUS >> UART_TXFIFO_CNT_S) & UART_TXFIFO_CNT);
 						#endif
 						spi_flash_write(pupload->faddr, (uint32 *)pstr, (block_size + 3)&(~3));
-						// ENABLE GPIO interrupts!!
-						ets_isr_unmask(1 << ETS_GPIO_INUM);
-						//
+						ets_isr_unmask((1<<ETS_GPIO_INUM) | (1<<ETS_UART_INUM)); // Enable interrupts!
 					}
 				}
 				pupload->fsize -= block_size;
 				pupload->faddr += block_size;
-#if DEBUGSOO > 4
+#if DEBUGSOO > 2
 				os_printf("trim#%u\n", len);
-				while((UART0_STATUS >> UART_TXFIFO_CNT_S) & UART_TXFIFO_CNT);
+				//while((UART0_STATUS >> UART_TXFIFO_CNT_S) & UART_TXFIFO_CNT); while((UART1_STATUS >> UART_TXFIFO_CNT_S) & UART_TXFIFO_CNT);
 #endif
 				if(len) {
 					ts_conn->cntri += len;
 					if(!web_trim_bufi(ts_conn, &ts_conn->pbufi[len], ts_conn->sizei - len)) return 500;
 					web_conn->content_len -= len;
 				}
-#ifdef SET_CPU_CLK_SPEED
-				if(syscfg.cfg.b.hi_speed_enable) set_cpu_clk();
-#endif
 				if((ret == 1 || ret == 200)) { // найден конец или новый boundary?
 					if(pupload->status == UPL_ST_WEBFS || pupload->status == UPL_ST_FIRMWARE) WEBFSInit();
 					if(pupload->fsize != 0) {
@@ -1704,7 +1756,7 @@ LOCAL bool ICACHE_FLASH_ATTR web_rx_buf(HTTP_CONN *CurHTTP, TCP_SERV_CONN *ts_co
 	tcpsrv_unrecved_win(ts_conn);
 	int ret = upload_boundary(ts_conn);
 #if DEBUGSOO > 4
-	os_printf(" ret u_b: %d ", ret);
+	os_printf(" ret u_b: %d,%x ", ret, web_conn->webflag);
 #endif
 	if(ret > 1) {
 		CurHTTP->httpStatus = ret;
@@ -1716,8 +1768,7 @@ LOCAL bool ICACHE_FLASH_ATTR web_rx_buf(HTTP_CONN *CurHTTP, TCP_SERV_CONN *ts_co
 					os_memcpy(CurHTTP->pFilename, pupload->filename, mMIN(VarNameSize,FileNameSize));
 //					SetSCB(SCB_DISCONNECT);
 				}
-			}
-			else if((!isWEBFSLocked) && CheckSCB(SCB_FOPEN)
+			} else if((!isWEBFSLocked) && CheckSCB(SCB_FOPEN)
 					&& web_conn->webfile <= WEBFS_MAX_HANDLE
 					&& WEBFSGetFilename(web_conn->webfile, CurHTTP->pFilename, FileNameSize)) {
 					SetSCB(SCB_REDIR);
@@ -1795,7 +1846,7 @@ bool ICACHE_FLASH_ATTR web_feee_bufi(TCP_SERV_CONN *ts_conn)
 *******************************************************************************/
 LOCAL err_t ICACHE_FLASH_ATTR webserver_received_data(TCP_SERV_CONN *ts_conn)
 {
-#if DEBUGSOO > 1
+#if DEBUGSOO > 5
     tcpsrv_print_remote_info(ts_conn);
     os_printf("read: %d ", ts_conn->sizei);
 #endif
@@ -1868,12 +1919,12 @@ LOCAL err_t ICACHE_FLASH_ATTR webserver_received_data(TCP_SERV_CONN *ts_conn)
 		};
     	SetSCB(SCB_HEAD_OK); // заголовок принят и обработан
 	};
-#if DEBUGSOO > 3
+#if DEBUGSOO > 5
    	os_printf("tst_rx: %u, %u, %u ", CurHTTP.httpStatus, (CheckSCB(SCB_RXDATA) != 0), web_conn->content_len );
 #endif
    	// проверка на прием данных (content)
     if(CurHTTP.httpStatus == 200 && CheckSCB(SCB_RXDATA) && (web_conn->content_len) && web_rx_buf(&CurHTTP,ts_conn)) {
-#if DEBUGSOO > 1
+#if DEBUGSOO > 5
     	os_printf("...\n");
 #endif
     	return ERR_OK; // докачивать content
@@ -1917,14 +1968,17 @@ LOCAL err_t ICACHE_FLASH_ATTR webserver_received_data(TCP_SERV_CONN *ts_conn)
 	    ts_conn->flag.rx_null = 1; // всё - больше не принимаем!
 		ts_conn->flag.rx_buf = 0; // не докачивать буфер
 		if(web_feee_bufi(ts_conn)) tcpsrv_unrecved_win(ts_conn); // уничтожим буфер
-	    if(tcp_sndbuf(ts_conn->pcb) >= HTTP_SEND_SIZE) { // возможна втавка ответа?
+	    if(tcp_sndbuf(ts_conn->pcb) >= HTTP_SEND_SIZE) { // возможна вcтавка ответа?
+#if DEBUGSOO > 5
+	    	os_printf(" resp=%x ", web_conn->webflag);
+#endif
 			// создание и вывод заголовка ответа.
 			web_print_headers(&CurHTTP, ts_conn);
 	        // начало предачи файла, если есть
 	        if((!CheckSCB(SCB_CLOSED | SCB_DISCONNECT | SCB_FCLOSE))&&CheckSCB(SCB_FOPEN)) webserver_send_fdata(ts_conn);
 	    }
 	    else {
-#if DEBUGSOO > 1
+#if DEBUGSOO > 5
 	    	os_printf("sndbuf=%u! ", tcp_sndbuf(ts_conn->pcb));
 #endif
 	    	SetSCB(SCB_FCLOSE | SCB_DISCONNECT);
@@ -1936,7 +1990,7 @@ LOCAL err_t ICACHE_FLASH_ATTR webserver_received_data(TCP_SERV_CONN *ts_conn)
     	SetSCB(SCB_DISCONNECT);
     }
     if(CheckSCB(SCB_DISCONNECT)) web_int_disconnect(ts_conn);
-#if DEBUGSOO > 1
+#if DEBUGSOO > 5
     else  os_printf("...\n");
 #endif
     return ERR_OK;
@@ -1965,7 +2019,7 @@ LOCAL void ICACHE_FLASH_ATTR web_int_disconnect(TCP_SERV_CONN *ts_conn)
 *******************************************************************************/
 LOCAL err_t ICACHE_FLASH_ATTR webserver_sent_callback(TCP_SERV_CONN *ts_conn)
 {
-#if DEBUGSOO > 1
+#if DEBUGSOO > 5
     tcpsrv_print_remote_info(ts_conn);
 #endif
 	WEB_SRV_CONN *web_conn = (WEB_SRV_CONN *)ts_conn->linkd;
@@ -1985,12 +2039,12 @@ LOCAL err_t ICACHE_FLASH_ATTR webserver_sent_callback(TCP_SERV_CONN *ts_conn)
         	SetSCB(SCB_DISCONNECT);
         }
         if(CheckSCB(SCB_DISCONNECT))  web_int_disconnect(ts_conn);
-    #if DEBUGSOO > 1
+    #if DEBUGSOO > 5
         else  os_printf("....\n");
     #endif
     }
     else { //  SCB_CLOSED
-#if DEBUGSOO > 1
+#if DEBUGSOO > 5
       os_printf("#%04x ?\n", web_conn->webflag);
 #endif
       ts_conn->flag.tx_null = 1;
@@ -2006,16 +2060,18 @@ LOCAL err_t ICACHE_FLASH_ATTR webserver_sent_callback(TCP_SERV_CONN *ts_conn)
 *******************************************************************************/
 LOCAL void ICACHE_FLASH_ATTR webserver_disconnect(TCP_SERV_CONN *ts_conn)
 {
-#if DEBUGSOO > 1
+#if DEBUGSOO > 5
     tcpsrv_disconnect_calback_default(ts_conn);
 #endif
 	WEB_SRV_CONN *web_conn = (WEB_SRV_CONN *)ts_conn->linkd;
 	if(web_conn == NULL) return;
     Close_web_conn(ts_conn);
+#ifndef BUILD_FOR_OTA_512k
 	if(CheckSCB(SCB_SYSSAVE)) {
 		ClrSCB(SCB_SYSSAVE);
 		sys_write_cfg();
 	}
+#endif
 	if(web_conn->web_disc_cb != NULL) {
 		web_conn->web_disc_cb(web_conn->web_disc_par);
 	}

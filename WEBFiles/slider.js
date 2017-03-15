@@ -99,5 +99,5 @@ function slider(elemId, sliderWidth, range1, range2, step) {
 	this.getValue = getValue
 }
 var mysl1 = new slider('sl', 320, 20, 10020, 0);
-mysl1.setValue(520);
+mysl1.setValue(1000);
 document.getElementById('toutid').innerHTML = mysl1.getValue();

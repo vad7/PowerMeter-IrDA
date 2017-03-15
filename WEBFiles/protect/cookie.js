@@ -11,8 +11,7 @@ function getCookie(name) {
 			cookieEndIndex));
 }
 function setCookie(name, value) {
-	document.cookie = name + "=; expires=Thu, 01 Jan 1970 00:00:00 UTC";
-	document.cookie = name + "=" + escape(value) + "; path=/protect";
+	document.cookie = name + "=" + escape(value) + ";path=/protect";
 }
 function setCookieElem(name, defv) {
 	var val = getCookie(name);
@@ -35,9 +34,6 @@ function NewCookie(add) {
 		document.getElementById('pmem').contentWindow.location.reload();
 	}
 }
-setCookieElem('start', '0x40000000');
-setCookieElem('set_ramaddr', '0x3FFF0000');
-setCookieElem('set_ramdata', '0x12345678');
 function UpTxt(xD, n, v) {
 	var x = getXMLValue(xD, n, v);
 	if (x == '?')

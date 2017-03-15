@@ -63,10 +63,12 @@
 #include "web_utils.h"
 
 #include <string.h>
-#include <time.h>
+//#include <time.h>
 //#include "localtime.h"
+#if DEBUGSOO > 1
 void _localtime(time_t * tim_p, struct tm * res) ICACHE_FLASH_ATTR;
-uint8 sntp_status = 0; // 1 - ok
+#endif
+int8 sntp_status = 0; // 1,2 - ok, -1 - manual set
 
 #if LWIP_UDP
 
@@ -382,9 +384,6 @@ static void ICACHE_FLASH_ATTR sntp_retry(void* arg)
 	LWIP_DEBUGF(SNTP_DEBUG_STATE, ("sntp_retry: Next request will be sent in %"U32_F" ms\n",
 		sntp->sntp_retry_timeout));
 
-#if DEBUGSOO > 4
-	os_printf("sntp failed\n");
-#endif
 	sntp_status = 0;
 
 /* set up a timer to send a retry and increase the retry delay */
@@ -570,12 +569,15 @@ sntp_dns_found(const char* hostname, ip_addr_t *ipaddr, void *arg)
 	if (ipaddr != NULL) {
 		/* Address resolved, send request */
 		LWIP_DEBUGF(SNTP_DEBUG_STATE, ("sntp_dns_found: Server address resolved, sending request\n"));
+		#if DEBUGSOO > 4
+			os_printf("SNTP req to %X\n", ipaddr);
+		#endif
 		sntp_send_request(ipaddr);
 	} else {
 		/* DNS resolving failed -> try another server */
 		LWIP_DEBUGF(SNTP_DEBUG_WARN_STATE, ("sntp_dns_found: Failed to resolve server address resolved, trying next server\n"));
 		#if DEBUGSOO > 4
-			os_printf("sntp dns failed\n");
+			os_printf("SNTP dns failed\n");
 		#endif
 		sntp_try_next_server(NULL);
 	}
@@ -601,6 +603,10 @@ void ICACHE_FLASH_ATTR sntp_request(void *arg)
 	rom_strcpy(buf_sntp_server_addresses, sntp->sntp_server_addresses, DNS_MAX_NAME_LENGTH-1);
 #endif
 
+#if DEBUGSOO > 4
+	os_printf("SNTP req -> ");
+#endif
+
 	LWIP_DEBUGF(SNTP_DEBUG_STATE, ("Sending request to %s.\n", buf_sntp_server_addresses));
 	/* initialize SNTP server address */
 	
@@ -614,10 +620,16 @@ void ICACHE_FLASH_ATTR sntp_request(void *arg)
 	if (!ip_addr_isany(dhcpntp)) {
 		sntp_server_address=*dhcpntp;
 		err = ERR_OK;
+		#if DEBUGSOO > 4
+			os_printf(" DHCP ");
+		#endif
 	}
 	else 
 #endif	
 	{
+		#if DEBUGSOO > 4
+			os_printf(" (%s) ", buf_sntp_server_addresses);
+		#endif
 		err = dns_gethostbyname(buf_sntp_server_addresses,
 			&sntp_server_address, sntp_dns_found, NULL);
 		if (err == ERR_INPROGRESS) {
@@ -641,10 +653,16 @@ void ICACHE_FLASH_ATTR sntp_request(void *arg)
 #endif /* SNTP_SERVER_DNS */
 
 	if (err == ERR_OK) {
+		#if DEBUGSOO > 4
+			os_printf(" IP: %X\n", sntp_server_address);
+		#endif
 		sntp_send_request(&sntp_server_address);
 	} else {
 		/* address conversion failed, try another server */
 		LWIP_DEBUGF(SNTP_DEBUG_WARN_STATE, ("sntp_request: Invalid server address, trying next server.\n"));
+		#if DEBUGSOO > 4
+			os_printf(" ip failed %d\n", err);
+		#endif
 		sys_timeout((u32_t) SNTP_RETRY_TIMEOUT, sntp_try_next_server, NULL);
 	}
 }
@@ -746,7 +764,15 @@ time_t ICACHE_FLASH_ATTR sntp_local_to_UTC_time(time_t local)
 
 void ICACHE_FLASH_ATTR sntp_set_time(time_t t)
 {
-	if(sntp != NULL) sntp->sntp_time = t;
+	if(sntp != NULL) {
+		sntp->sntp_time = t;
+		os_timer_disarm(&sntp->ntp_timer);
+		ets_timer_arm_new(&sntp->ntp_timer, 1000, 1, 1);
+		sntp_status = -1;
+	}
+#if DEBUGSOO > 4
+	os_printf("Manual set sntp %u = %d\n", t, sntp_status);
+#endif
 }
 
 #endif /* LWIP_UDP */

@@ -84,7 +84,7 @@ extern volatile uint32 io4_regs_[384];	// 0x60009800
 /* FLASH */
 #define FLASH_BASE		0x40200000
 #define FLASH_MIN_SIZE	0x00080000	// 512 k
-#define FLASH_MAX_SIZE	0x01000000
+#define FLASH_MAX_SIZE	0x01000000  // 16M
 #define FLASH_CACHE_MAX_SIZE	0x100000 // размер "кешируемой" области Flash
 #define MASK_ADDR_FLASH_ICACHE_DATA	(FLASH_CACHE_MAX_SIZE-1)
 
@@ -412,6 +412,7 @@ typedef enum {
 #define WDT_FEED		wdt_[5]
 #define WDT_FEED_MAGIC	0x73
 
+#if 0 // cause exception
 /* I2S:0x60000E00 registers */
 /* I2STXFIFO:0x60000E00 */
 #define I2STXFIFO	i2s_[0]
@@ -437,6 +438,8 @@ typedef enum {
 #define I2SCONF_SIGLE_DATA	i2s_[10]
 /* I2SCONF_CHAN:0x60000E2C */
 #define I2SCONF_CHAN	i2s_[11]
+
+#endif
 
 #define IDX_GPIO_PIN	10
 /* GPIO:0x60000300 registers */
@@ -662,7 +665,7 @@ typedef enum {
 bit12 =1 SDIO dataoutput is at negative edges (SDIO V1.1)
 bit13 =1 SDIO dataoutput is at positive edges (SDIO V2.0)
 */
-
+#if 0 // cause exception
 /* SCL:0x60000B00 registers */
 /* SLC_CONF0:0x60000B00 */
 #define SLC_CONF0		scl_[0]
@@ -751,6 +754,8 @@ bit13 =1 SDIO dataoutput is at positive edges (SDIO V2.0)
 #define SLC_HOST_INTR_ENA	scl_[45]
 /* SLC_HOST_CONF_W5:0x60000BB8 */
 #define SLC_HOST_CONF_W5	scl_[46]
+
+#endif
 
 /* SAR_?:0x60000D50 */
 #define SAR_CFG sar_[20]

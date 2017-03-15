@@ -168,7 +168,7 @@ bool system_rtc_mem_read(uint8 src_addr, void *des_addr, uint16 load_size)
 }
 
 
-uint8 system_get_os_print(void)
+uint8 ICACHE_FLASH_ATTR system_get_os_print(void)
 {
 	return os_pint_ena;
 }

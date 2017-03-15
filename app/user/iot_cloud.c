@@ -18,9 +18,10 @@
  */
 
 #include "user_config.h"
+#include "c_types.h"
+#ifndef BUILD_FOR_OTA_512k
 #include "bios.h"
 #include "sdk/add_func.h"
-#include "c_types.h"
 #include "osapi.h"
 #include "user_interface.h"
 #include "lwip/tcp.h"
@@ -369,10 +370,11 @@ void ICACHE_FLASH_ATTR iot_cloud_send(uint8 fwork)
 {
 	if(wifi_station_get_connect_status() != STATION_GOT_IP) return; // st connected?
 	if(!flg_open_all_service) {// some problem with WiFi here
-		wifi_station_connect();
+		wifi_station_disconnect();
 		#ifdef DEBUG_TO_RAM
-			dbg_printf("WiFi reconnect\n");
+			dbg_printf("WiFiR %u\n", dbg_next_time());
 		#endif
+		wifi_station_connect();
 	}
 	if(!cfg_glo.iot_cloud_enable) return; // iot cloud disabled
 	#if DEBUGSOO > 4
@@ -391,3 +393,7 @@ void ICACHE_FLASH_ATTR iot_cloud_send(uint8 fwork)
 		tc_go_next();
 	}
 }
+
+#else
+void ICACHE_FLASH_ATTR iot_cloud_send(uint8 fwork) {}
+#endif // BUILD_FOR_OTA_512k

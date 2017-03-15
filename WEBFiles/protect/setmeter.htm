@@ -12,97 +12,142 @@
 		<form method="post" action="" onsubmit="SubmitFunction()">
 			<table class="form">
 				<tr>
-					<td class="label">Total cnt, kWt * ~cfg_meter_PulsesPerKWt~:
-					<input title='change?' type='checkbox' id='chg_tcnt' value='0'> 
-					</td>
-					<td><input title='0..4294967295' id='TCnt' name='cfg_meter_TotalCnt' maxlength='10' value='~TotalCnt~'>&ensp;&larr;&ensp;<input title='0.00..999999.99' id='kWt' size='8' value='~TotalKWT~' onchange='CalcTotalCnt("TCnt","kWt")'>&nbsp;kWt</td>
+					<td class="label">Request period, sec:</td>
+					<td><input name='cfg_glo_req_period' maxlength='10' value='~cfg_glo_req_period~'></td>
 				</tr>
 				<tr>
-					<td class="label">Total T1 cnt: &uarr; &nbsp;</td>
-					<td><input title='0..4294967295' id='TCntT1' name='cfg_meter_TotalCntT1' maxlength='10' value='~TotalCntT1~'>&ensp;&larr;&ensp;<input title='0.00..999999.99' id='T1kWt' size='8' value='~TotalKWTT1~' onchange='CalcTotalCnt("TCntT1","T1kWt")'>&nbsp;kWt</td>
+					<td class="label">Main page refresh, msec:</td>
+					<td><input name='cfg_glo_refresh_t' maxlength='10' value='~cfg_glo_refresh_t~'></td>
 				</tr>
 				<tr>
-					<td class="label">Pulses per kWt:</td>
-					<td><input title='100,200,300,..10000' id='PkWt' name='cfg_meter_PulsesPerKWt' maxlength='5' value='~cfg_meter_PulsesPerKWt~'></td>
+					<td class="label">Time max mismatch to correct, sec:</td>
+					<td><input name='cfg_glo_time_maxmism' maxlength='10' value='~cfg_glo_time_maxmism~'></td>
 				</tr>
 				<tr>
-					<td class="label">Adjust Time:</td>
-					<td><input title='sec' name='cfg_meter_TAdj' maxlength='6' value='~cfg_meter_TAdj~'></td>
+					<td class="label">Read timeout, us:</td>
+					<td><input name='cfg_glo_pwmt_rtout' maxlength='10' value='~cfg_glo_pwmt_rtout~'></td>
+				</tr>
+				<tr>
+					<td class="label">Response timeout, us:</td>
+					<td><input name='cfg_glo_pwmt_tout' maxlength='10' value='~cfg_glo_pwmt_tout~'></td>
+				</tr>
+				<tr>
+					<td class="label">Delay after error, us:</td>
+					<td><input name='cfg_glo_pwmt_derr' maxlength='10' value='~cfg_glo_pwmt_derr~'></td>
 				</tr>
 				<tr>
 					<td class="label">Tariff 1 Start (incl):</td>
-					<td><input title='hhmm' name='cfg_meter_T1St' maxlength='4' value='~cfg_meter_T1St~'></td>
+					<td><input title='hhmm' name='cfg_glo_T1St' maxlength='4' value='~cfg_glo_T1St~'></td>
 				</tr>
 				<tr>
 					<td class="label">Tariff 1 End:</td>
-					<td><input title='hhmm' name='cfg_meter_T1En' maxlength='4' value='~cfg_meter_T1En~'></td>
+					<td><input title='hhmm' name='cfg_glo_T1En' maxlength='4' value='~cfg_glo_T1En~'></td>
 				</tr>
 				<tr>
-					<td class="label">Delimiter in .csv:</td>
-					<td><input title='char' name='cfg_meter_csv_delim' maxlength='1' value='~cfg_meter_csv_delim~'></td>
+					<td class="label">Adjust SNTP Time:</td>
+					<td><input title='sec' name='cfg_glo_TAdj' maxlength='6' value='~cfg_glo_TAdj~'></td>
+				</tr>
+				<tr>
+					<td class="label">Total cnt, kWt*h * ~cfg_glo_PulsesPerKWt~:
+					<input title='change?' type='checkbox' name='chg_tcnt' value='0'> 
+					</td>
+					<td><input title='0..4294967295' id='TCnt' name='cfg_glo_TotalCnt' maxlength='10' value='~TotalCnt~'>&ensp;&larr;&ensp;<input title='0.00..999999.99' id='kWt' size='8' value='0' onchange='CalcTotalCnt("TCnt","kWt")'>&nbsp;kWt*h</td>
+				</tr>
+				<tr>
+					<td class="label">Power meter address:</td>
+					<td><input title='0 - any (write impossible)' name='cfg_glo_pwmt_addr' maxlength='3' value='~cfg_glo_pwmt_addr~'></td>
+				</tr>
+				<tr>
+					<td class="label">User password (int8 array):</td>
+					<td><input title='x,x,x,x,x,x' name='cfg_glo_pass1' maxlength='30' size='50' value='~cfg_glo_pass1~'></td>
+				</tr>
+				<tr>
+					<td class="label">Admin password (int8 array):</td>
+					<td><input title='x,x,x,x,x,x' name='cfg_glo_pass2' maxlength='30' size='50' value='~cfg_glo_pass2~'></td>
+				</tr>
+				<tr>
+					<td class="label">Field delimiter in .csv:</td>
+					<td><input title='char' name='cfg_glo_csv_delim' maxlength='1' value='~cfg_glo_csv_delim~'></td>
+				</tr>
+				<tr>
+					<td class="label">Decimal delimiter in .csv:</td>
+					<td><input title='char' name='cfg_glo_csv_delimd' maxlength='1' value='~cfg_glo_csv_delimd~'></td>
+				</tr>
+				<tr>
+					<td class="label">Field delim. in total:</td>
+					<td><input title='char' name='cfg_glo_csv_delim_t' maxlength='1' value='~cfg_glo_csv_delim_t~'></td>
+				</tr>
+				<tr>
+					<td class="label">Decimal delimiter in total:</td>
+					<td><input title='char' name='cfg_glo_csv_delim_td' maxlength='1' value='~cfg_glo_csv_delim_td~'></td>
 				</tr>
 				<tr>
 					<td class="label">IoT cloud enable:</td>
-					<td><input type="hidden" name='cfg_iot_cloud_enable' value='0'><input type='checkbox' name='cfg_iot_cloud_enable' value='1'></td>
+					<td><input type='checkbox' name='cfg_iot_cloud_enable' value='~cfg_iot_cloud_enable~'></td>
 				</tr>
 				<tr>
 					<td class="label">IoT cloud setup:
-					<input title='change?' type='checkbox' id='chg_iot' value='0'></td>
+					<input title='change?' type='checkbox' name='chg_iot_ini' value='0'></td>
 					<td><textarea title='protect/iot_cloud.ini' name='cfg_iot_ini' rows=4 cols=50 wrap="off" maxlength=1023>~cfg_iot_ini~</textarea></td>
 				</tr>
 				<tr>
 					<td class="label">FRAM size (bytes):</td>
-					<td><input title='1024..' name='cfg_meter_Fram_Size' maxlength='10' value='~cfg_meter_Fram_Size~'></td>
+					<td><input title='1024..' name='cfg_glo_Fram_Size' maxlength='10' value='~cfg_glo_Fram_Size~'></td>
 				</tr>
 				<tr>
 					<td class="label">FRAM access frequence:</td>
-					<td><input title='kHz' name='cfg_meter_FramFr' maxlength='5' value='~cfg_meter_FramFr~'></td>
-				</tr>
-				<tr>
-					<td class="label">GPIO debouncing, us:</td>
-					<td><input name='cfg_meter_Debouncing' maxlength='10' value='~cfg_meter_Debouncing~'></td>
-				</tr>
-				<tr>
-					<td class="label">Sensor pulse reversed:</td>
-					<td><input type="hidden" name='cfg_meter_revsens' value='0'><input type='checkbox' name='cfg_meter_revsens' value='1'></td>
+					<td><input title='kHz' name='cfg_glo_FramFr' maxlength='5' value='~cfg_glo_FramFr~'></td>
 				</tr>
 				<tr>
 					<td class="label">Reset all data:</td>
-					<td><input type='password' title='Enter R....' name='cfg_meter_reset_data' maxlength='10' value=''></td>
+					<td><input title="Enter RESETn, n: ''-all, 1-eeprom, 2-Day array, 4-Minute array" name='cfg_glo_reset_data' maxlength='10' value=''></td>
 				</tr>
  			</table>
-		<p class="center">
-			<input type='hidden' name='cfg_meter_save' value='1'>
-			<input type='submit' value='Set Config' class="button">
-		</p>
+			<p class="center">
+				<input type='hidden' name='cfg_glo_save' value='1'>
+				<input type='submit' value='Set Config' class="button">
+			</p>
+		</form>
 	</div>
 	<div class="content">
- 		</form>
 		<p class="center">
+			<a href="settings.bin">Download settings...</a><br>
+			<form method='post' action='/fsupload' enctype='multipart/form-data' class="center">
+			Restore settings:
+			<input type='file' name='settings'> <input type='submit' value='Upload' class="button">
+		<br><br>
+			<a href="/protect/fram_all.bin">Download FRAM memory (~cfg_glo_Fram_Size~ bytes).</a><br><br>
 			<form method='post' action='/fsupload' enctype='multipart/form-data' class="center">
 			Upload to FRAM:
 			<input type='file' name='eeprom'> <input type='submit' value='Upload' class="button">
+			</form>
 		</p>
         <br>
 	</div>
 ~inc:footer.inc~
 <script type="text/javascript">
-var cfg = {
-	cfg_iot_cloud_enable:"~cfg_iot_cloud_enable~",
-	cfg_meter_revsens:"~cfg_meter_revsens~"
-}
-setFormValues(document.forms[0], cfg);
+setFormCheckBoxes(document.forms[0]);
 function SubmitFunction() {
-	if(!document.getElementsById('chg_tcnt').checked) {
-		document.getElementsById('TCnt').removeAttribute('name');
-		document.getElementsById('TCntT1').removeAttribute('name');
-	}
-	if(!document.getElementsById('chg_iot').checked) {
-		document.getElementsByName('cfg_iot_ini')[0].removeAttribute('name');
+	var inputs = document.forms[0].getElementsByTagName('input');
+	for(var i=0; i<inputs.length; i++){
+		var f = inputs[i];
+		if(f.getAttribute('type') == 'checkbox'){
+			if(f.checked) {
+				f.value = '1';
+			} else {
+				if(f.name == 'chg_iot_ini') document.getElementsByName('cfg_iot_ini')[0].removeAttribute('name');
+				else if(f.name == 'chg_tcnt') document.getElementsByName('cfg_glo_TotalCnt')[0].removeAttribute('name');
+				else {
+					f.checked = true;
+					f.value = '0';
+				}
+			}
+		}
 	}
 }
 function CalcTotalCnt(cnt, kwt) {
-	document.getElementById(cnt).value = Math.round(document.getElementById(kwt).value * document.getElementById('PkWt').value);
+	document.getElementById(cnt).value = Math.round(document.getElementById(kwt).value * ~cfg_glo_PulsesPerKWt~);
 }
+document.getElementById('kWt').value = (~TotalCnt~ / ~cfg_glo_PulsesPerKWt~).toFixed(3);
 </script>
 </body></html>

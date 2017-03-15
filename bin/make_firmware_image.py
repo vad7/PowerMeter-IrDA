@@ -28,11 +28,16 @@ fout.flush()
 size = os.fstat(fout.fileno()).st_size
 fout.close()
 print "Make: " + fout_name
+ota2stepmax = 286720
 if int(args.flashsize) == 512:
 	webfs = (size + 0xFFF) & 0xFF000
-	maxota = (0x7B000 / 2) & 0xFF000
+	maxota = 0x7B000 - webfs
+	ota2step1 = " (2 step: " + str(ota2stepmax) + ")"
+	ota2step2 = " (2 step: " + str(ota2stepmax - size) + ")"
 else:
 	webfs = 0x80000
 	maxota = 0x7B000
-print "Firmware size: " + str(size) + ", WebFS addr: " + str(webfs) + ", Max OTA size: " + str(maxota)
-print "Space available for OTA: " + str(maxota - size)
+	ota2step1 = ""
+	ota2step2 = ""
+print "Firmware size: " + str(size) + ", WebFS addr: " + str(webfs) + ", Max OTA size: " + str(maxota) + ota2step1
+print "Space available for OTA: " + str(maxota - size) + ota2step2

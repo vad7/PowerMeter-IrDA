@@ -13,6 +13,7 @@
 #include "osapi.h"
 #include "flash_eep.h"
 #include "web_iohw.h"
+#ifndef BUILD_FOR_OTA_512k
 #include "tcp2uart.h"
 //=============================================================================
 // get_addr_gpiox_mux(pin_num)
@@ -66,22 +67,8 @@ void ICACHE_FLASH_ATTR set_gpiox_mux_func_default(uint8 pin_num)
 {
     set_gpiox_mux_func(pin_num, MUX_FUN_DEF_SDK(pin_num));
 }
-//=============================================================================
-// select cpu frequency 80 or 160 MHz
-//-----------------------------------------------------------------------------
-void ICACHE_FLASH_ATTR set_cpu_clk(void)
-{
-	ets_intr_lock();
-	if(syscfg.cfg.b.hi_speed_enable) {
-		Select_CLKx2(); // REG_SET_BIT(0x3ff00014, BIT(0));
-		ets_update_cpu_frequency(160);
-	}
-	else {
-		Select_CLKx1(); // REG_CLR_BIT(0x3ff00014, BIT(0));
-		ets_update_cpu_frequency(80);
-	}
-	ets_intr_unlock();
-}
+
+#ifdef USE_GPIO3_AS_CFG_RESET
 //=============================================================================
 //  Пристартовый тест пина RX для сброса конфигурации
 //=============================================================================
@@ -101,12 +88,12 @@ void GPIO_intr_handler(void * test_edge)
 void ICACHE_FLASH_ATTR test_pin_clr_wifi_config(void)
 {
 	uint32 x = 0;
-	uint8 test_edge = 0;
+	volatile uint8 test_edge = 0;
 	uint32 pin_num = (PERI_IO_SWAP & PERI_IO_UART0_PIN_SWAP)? GPIO_TEST1 : GPIO_TEST0;
 	uint32 pin_mask = 1<<pin_num;
 	if(UART1_CONF0 & UART_RXD_INV) x = pin_mask;
-	gpio_output_set(0,0,0, pin_mask);
 	uint32 old_ioe = GPIO_ENABLE; // запомнить вход или выход
+	gpio_output_set(0,0,0, pin_mask);
 	GPIO_ENABLE_W1TC = pin_mask; // GPIO OUTPUT DISABLE отключить вывод в порту GPIO3
 	uint32 old_mux = get_gpiox_mux(pin_num); // запомнить функцию
 	set_gpiox_mux_func_ioport(pin_num); // установить RX (GPIO3) в режим порта i/o
@@ -130,6 +117,7 @@ void ICACHE_FLASH_ATTR test_pin_clr_wifi_config(void)
 	if(old_ioe & pin_mask) GPIO_ENABLE_W1TS = pin_mask; // восстановить если был выход
 	*get_addr_gpiox_mux(pin_num) = old_mux; // восстановить mux
 }
+#endif
 
 //===============================================================================
 // get_mac_time()
@@ -150,5 +138,21 @@ uint64 ICACHE_FLASH_ATTR get_mac_time(void)
 	return ux.dd;
 }
 
+#endif
 
-
+//=============================================================================
+// select cpu frequency 80 or 160 MHz
+//-----------------------------------------------------------------------------
+void ICACHE_FLASH_ATTR set_cpu_clk(void)
+{
+	ets_intr_lock();
+	if(syscfg.cfg.b.hi_speed_enable) {
+		Select_CLKx2(); // REG_SET_BIT(0x3ff00014, BIT(0));
+		ets_update_cpu_frequency(160);
+	}
+	else {
+		Select_CLKx1(); // REG_CLR_BIT(0x3ff00014, BIT(0));
+		ets_update_cpu_frequency(80);
+	}
+	ets_intr_unlock();
+}

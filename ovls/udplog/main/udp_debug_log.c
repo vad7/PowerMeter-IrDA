@@ -40,7 +40,9 @@ struct udp_pcb *pcb_udp_drv DATA_IRAM_ATTR;
 extern uint32 _lit4_start[]; // addr start BSS in IRAM
 extern uint32 _lit4_end[]; // addr end BSS in IRAM
 
-extern int rom_atoi(const char *);
+extern int atoi_z(const char *s, uint8_t endchar_zero) ICACHE_FLASH_ATTR;
+#define rom_atoi(s) atoi_z(s, 0)
+//extern int rom_atoi(const char *);
 #define atoi rom_atoi
 
 #define mMIN(a, b)  ((a<b)?a:b)
@@ -207,8 +209,13 @@ void send_buf(void)
 		struct pbuf *z = pbuf_alloc(PBUF_TRANSPORT, udpbufsize, PBUF_RAM);
 		if(z != NULL) {
 			err_t err = pbuf_take(z, udpbuf, udpbufsize);
-			if(err == ERR_OK) udp_sendto(pcb_udp_drv, z, &drv_host_ip, drv_host_port);
-			    pbuf_free(z);
+			if(err == ERR_OK) {
+				udp_sendto(pcb_udp_drv, z, &drv_host_ip, drv_host_port);
+#if DEBUGSOO > 5
+				os_printf("UDP-Log: send " IPSTR ":%d %d\n", IP2STR(&drv_host_ip), drv_host_port, udpbufsize);
+#endif
+			}
+		    pbuf_free(z);
 		}
 		udpbufsize = 0;
 	}
@@ -218,6 +225,9 @@ void send_buf(void)
 //-------------------------------------------------------------------------------
 void puts_buf(uint8 ch)
 {
+#if DEBUGSOO > 6
+	uart1_write_char(ch);
+#endif
 	if(udpbuf == NULL) return;
 	if(udpbufsize < UDP_BUF_SIZE - 1) udpbuf[udpbufsize++] = ch;
 	if(udpbufsize >= UDP_BUF_SIZE
@@ -237,11 +247,17 @@ bool init_udp_drv(void)
 	}
 	pcb_udp_drv = udp_new();
 	if(pcb_udp_drv == NULL || (udp_bind(pcb_udp_drv, IP_ADDR_ANY, drv_host_port) != ERR_OK)) {
+#if DEBUGSOO > 4
+		os_printf("UDP-Log: bind err\n");
+#endif
 		udp_remove(pcb_udp_drv);
 		pcb_udp_drv = NULL;
 		return false;
 	}
 	udp_recv(pcb_udp_drv, udp_port_recv, pcb_udp_drv);
+#if DEBUGSOO > 4
+		os_printf("UDP-Log: init drv ok\n");
+#endif
 	return true;
 }
 //-------------------------------------------------------------------------------
@@ -270,13 +286,13 @@ int ovl_init(int flg)
 				drv_error = -1;
 			}
 			else if((udpbuf = os_malloc(UDP_BUF_SIZE)) != NULL) {
+#if DEBUGSOO > 1
+				os_printf("UDP-Log: Init Ok\n");
+#endif
 				udpbufsize = 0;
 				ets_install_putc1((void *)puts_buf); // install uart1 putc callback
 				ets_timer_disarm(&test_timer);
 				ets_timer_setfn(&test_timer, (os_timer_func_t *)send_buf, NULL);
-#if DEBUGSOO > 1
-				os_printf("UDP-Log: Init Ok\n");
-#endif
 				drv_init_usr = 1;
 				drv_init_flg = 1;
 				drv_error = 0;
@@ -291,7 +307,7 @@ int ovl_init(int flg)
 		}
 		else drv_error = 1;
 	}
-	else /* if(flg == 0) */ {
+	else if(flg == 0) {
 		ets_timer_disarm(&test_timer);
 		close_udp_drv();
 		ets_install_putc1((void *)uart1_write_char); // install uart1 putc callback
@@ -305,6 +321,10 @@ int ovl_init(int flg)
 		drv_init_flg = 0;
 		drv_init_usr = 0;
 		drv_error = 2;
+	} else if(drv_init_flg) {
+		if(flg == -1) { // send buf now
+			send_buf();
+		}
 	}
 	return drv_error;
 }

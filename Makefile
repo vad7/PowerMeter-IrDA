@@ -7,23 +7,26 @@
 ESPOPTION ?= -p COM5 -b 460800
 #115200
 
-UPLOADADDR = http://aesp8266/fsupload
+UPLOADADDR = http://192.168.0.137/fsupload
+#UPLOADADDR = http://aesp8266/fsupload
 
-UPLOADOVL = ./ovls/bin/10dof.ovl
+UPLOADOVL = ./ovls/bin/udplog.ovl
 
 # SPI_SPEED = 40MHz or 80MHz
 SPI_SPEED?=80
 # SPI_MODE: QIO, DIO, QOUT, DOUT
 SPI_MODE?=QIO
 # SPI_SIZE: 512KB for all size Flash ! (512 kbytes .. 16 Mbytes Flash autodetect)
-SPI_SIZE?=512
-#SPI_SIZE?=4096
+SPI_SIZE?=1024
+#SPI_SIZE?=512
 # 
 ADDR_FW1 = 0x00000
 ADDR_FW2 = 0x07000
 # 
 #USERFADDR = 0x3E000
 USERFADDR = $(shell printf '0x%X\n' $$(( ($$(stat --printf="%s" $(OUTBIN2)) + 0xFFF + $(ADDR_FW2)) & (0xFFFFF000) )) )
+
+MAKEWEBFS = ./WEBFS22.exe -h "*.htm, *.html, *.cgi, *.xml, *.bin, *.txt, *.wav, *.csv" -z "mdbini.bin, *.inc, *.ini, snmp.bib, *.ovl" ./WEBFiles ./webbin WEBFiles.bin
 USERFBIN = ./webbin/WEBFiles.bin
 #
 FIRMWAREDIR := bin
@@ -180,7 +183,7 @@ else
                 flash = 512
 				flashimageoptions += -fs 4m
 				CCFLAGS += -DFIX_SDK_FLASH_SIZE=524288
-             endif
+            endif
         endif
     endif
 endif
@@ -220,13 +223,22 @@ $(BINODIR)/%.bin: $(IMAGEODIR)/%.out
 	@echo "------------------------------------------------------------------------------"
 	@echo "Add rapid_loader..."
 	@mv -f ../bin/$(ADDR_FW1).bin ../bin/0.bin 
-ifeq ($(freqdiv), 15)	
-	@dd if=../bin/rapid_loader.bin >../bin/$(ADDR_FW1).bin
+ifeq ($(freqdiv), 15)
+    ifeq ($(SPI_SIZE), 512)
+	    @dd if=../bin/rapid_loader_512.bin >../bin/$(ADDR_FW1).bin
+    else
+	    @dd if=../bin/rapid_loader.bin >../bin/$(ADDR_FW1).bin
+    endif
 else
-	@dd if=../bin/rapid_loader_40m.bin >../bin/$(ADDR_FW1).bin
-endif	
+    ifeq ($(SPI_SIZE), 512)
+	    @dd if=../bin/rapid_loader_40m_512.bin >../bin/$(ADDR_FW1).bin
+    else
+	    @dd if=../bin/rapid_loader_40m.bin >../bin/$(ADDR_FW1).bin
+    endif
+endif
 	@dd if=../bin/0.bin >>../bin/$(ADDR_FW1).bin
-# disable overlays make
+#
+# Overlays skipped!!!!!
 #	$(OVLTOOL) $< ../ld/labels.ld
 #	@make -C ../ovls
 #
@@ -274,16 +286,16 @@ UploadOvl:
 	$(UPLOADTOOL) overlay $(UPLOADOVL) $(UPLOADADDR)
 
 UploadWeb: $(USERFBIN)
-	./WEBFS22.exe -h "*.htm, *.html, *.cgi, *.xml, *.bin, *.txt, *.wav" -z "*.inc, snmp.bib, *.ovl, *.ini" ./WEBFiles ./webbin WEBFiles.bin
+	$(MAKEWEBFS)
 	$(UPLOADTOOL) file ./webbin/WEBFiles.bin $(UPLOADADDR)
 
 NewUserBin:
 	@$(RM) -f $(USERFBIN)
-	@cp -f ovls/bin/*.ovl WEBFiles
-	./WEBFS22.exe -h "*.htm, *.html, *.cgi, *.xml, *.bin, *.txt, *.wav" -z "*.inc, snmp.bib, *.ovl, *.ini" ./WEBFiles ./webbin WEBFiles.bin
+#	@cp -f ovls/bin/*.ovl WEBFiles
+	$(MAKEWEBFS)
 
 $(USERFBIN):
-	./WEBFS22.exe -h "*.htm, *.html, *.cgi, *.xml, *.bin, *.txt, *.wav" -z "*.inc, snmp.bib, *.ovl, *.ini" ./WEBFiles ./webbin WEBFiles.bin
+	$(MAKEWEBFS)
 
 .subdirs:
 	@set -e; $(foreach d, $(SUBDIRS), $(MAKE) -C $(d);)

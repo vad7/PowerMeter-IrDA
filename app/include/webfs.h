@@ -9,12 +9,13 @@
 #define __WEBFS1_H
 
 #include "user_config.h"
+#include "flash_eep.h"
 
 extern uint32 _irom0_text_end;
 
-#define WEBFS_DISK_ADDR_MINFLASH_START (((uint32)&_irom0_text_end + 0xFFF)&(0xFF000))
-#define WEBFS_DISK_ADDR_MINFLASH_END   (0x79000)
-#define WEBFS_DISK_ADDR_BIGFLASH      0x80000
+#define WEBFS_DISK_ADDR_MINFLASH_START	(((uint32)&_irom0_text_end + 0xFFF)&(~0xFFF))
+#define WEBFS_DISK_ADDR_BIGFLASH		0x80000
+#define WEBFS_DISK_ADDR_END				FMEMORY_SCFG_BASE_ADDR
 
 #define WEBFS_DISK_ID 	0x42455746 // заголовок WEBFiles.bin
 #define WEBFS_DISK_VER 	0x0001	   // версия
@@ -100,7 +101,7 @@ WEBFS_PTR WEBFSGetEndAddr(WEBFS_HANDLE hWEBFS) ICACHE_FLASH_ATTR;
 bool WEBFSGetFilename(WEBFS_HANDLE hWEBFS, uint8* cName, uint16 wLen) ICACHE_FLASH_ATTR;
 uint32 WEBFSGetPosition(WEBFS_HANDLE hWEBFS) ICACHE_FLASH_ATTR;
 uint32 WEBFS_max_size(void) ICACHE_FLASH_ATTR;
-uint32 WEBFS_curent_size(void) ICACHE_FLASH_ATTR;
+uint32 WEBFS_current_size(void) ICACHE_FLASH_ATTR;
 uint32 WEBFS_base_addr(void) ICACHE_FLASH_ATTR;
 bool WEBFSSeek(WEBFS_HANDLE hWEBFS, uint32 dwOffset, WEBFS_SEEK_MODE tMode) ICACHE_FLASH_ATTR;
 void GetFATRecord(uint32 fatID) ICACHE_FLASH_ATTR;

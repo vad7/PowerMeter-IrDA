@@ -73,22 +73,38 @@
 // Конфигурация для проекта WEB+WEBSOCK
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #define USE_WEB		80 // включить в трансляцию порт Web, если =0 - по умолчанию выключен
+//#define BUILD_FOR_OTA_512k // if enabled - very small build for two stage OTA on 512kbyte flash
+#ifndef BUILD_FOR_OTA_512k
+//#define USE_GPIO3_AS_CFG_RESET // При замыкании на землю GPIO3(RX) обнулять конфигурацию
 //#define WEBSOCKET_ENA // включить WEBSOCKET
 //#define USE_NETBIOS	1 // включить в трансялцию драйвер NETBIOS, если =0 - по умолчанию выключен.
 #define USE_SNTP	1 // включить в трансялцию драйвер SNTP, если =0 - по умолчанию выключен, = 1 - по умолчанию включен.
 //#define USE_GPIOs_intr
 //#define USE_UART1 // включить UART1 для отладки
-//#define USE_OVERLAY 8192 // включить в трансляцию возможность работы с оверлеями (максимальный размер кода оверлея)
+//#define USE_OVERLAY 4000 // включить в трансляцию возможность работы с оверлеями (максимальный размер кода оверлея)
+#define DEBUG_TO_RAM
+
+#define STORE_FLASH_ADDR	0x100000 // Начальный адрес для хранилища во флеш (до верхней ее границы), должен быть выровнен на начало сектора.
 
 #define USE_I2C 	  // драйвер I2C
+#ifdef  USE_I2C
 #define I2C_ID 0x50
+#ifndef DEBUG_UART
+#define I2C_SDA_PIN 2 // SDA on GPIO#
+#else
+#define I2C_SDA_PIN 4 // SDA on GPIO# (debug only)
+#endif
+#define I2C_SCL_PIN 0 // SCL on GPIO#
+#endif
 //#define USE_HSPI	  // драйвер  HSPI
 
 #define UTC_OFFSET +3 // Moscow time
 
 #define USE_UART0	  // UART0 in/out
 #define USE_MERCURY	  // UART0 as interface to Mercury power meter (speed 9600b)
-
+//#define USE_I2S
+//#define I2S_CLOCK_OUT // GPIO2 (I2SO_WS)
+#endif
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #endif // PROGECT_NAME
 

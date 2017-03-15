@@ -133,7 +133,7 @@ static void set_qspi_flash_cache(void)
 #ifdef USE_ALTBOOT
 
 #endif
-	flashchip->chip_size = 512*1024; // песочница для SDK в 512 килобайт flash
+	flashchip->chip_size = sdk_flashchip_size; // песочница для SDK в 512 килобайт flash
 	// Всё - включаем кеширование, далее можно вызывать процедуры из flash
 	Cache_Read_Enable_def();
 }
@@ -538,6 +538,9 @@ void ICACHE_FLASH_ATTR read_wifi_config(void)
 	struct ets_store_wifi_hdr hbuf;
 	sdk_flash_read(faddr_sdk_wifi_cfg_head,(uint32 *)(&hbuf), sizeof(hbuf));
 	struct s_wifi_store * wifi_config = &g_ic.g.wifi_store;
+#ifdef DEBUG_UART
+		os_printf("\nRead WiFi cfg from %X\n", faddr_sdk_wifi_cfg + ((hbuf.bank)? flashchip_sector_size : 0));
+#endif
 	sdk_flash_read(faddr_sdk_wifi_cfg + ((hbuf.bank)? flashchip_sector_size : 0),(uint32 *)wifi_config, wifi_config_size);
 #if DEF_SDK_VERSION >= 2000
 	if (hbuf.flag == 0xFFFFFFFF) { // первый пуск или выключили питание при записи конфигурации (китай-фича! :))
@@ -858,7 +861,9 @@ void ICACHE_FLASH_ATTR startup(void)
 #ifdef DEBUG_UART
 	os_print_reset_error(); // вывод фатальных ошибок, вызвавших рестарт. см. в модуле wdt
 #endif
-	RTC_MEM(0) = REASON_DEFAULT_RST; //	вместо system_rtc_mem_write(0, &rst_if, sizeof(rst_if));
+	// DONT CLEAR EXCEPTION - for NodeMCU !!!
+	//RTC_MEM(0) = REASON_DEFAULT_RST; //	вместо system_rtc_mem_write(0, &rst_if, sizeof(rst_if));
+	//
 #endif
 #endif	// DEF_SDK_VERSION >= 2000
 //	DPORT_BASE[0] = (DPORT_BASE[0] & 0x60) | 0x0F; // ??

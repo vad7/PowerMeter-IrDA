@@ -12,15 +12,18 @@ Chart <a href="/heap.htm">'heap'</a>, <a href="/adc.htm">ADC</a>, <a href="/vdd.
 <a href="debugram.htm">Debug to RAM</a>
 <br>
 <form method="post" action="" class="center">
-	Debounce, us: <input name='cfg_meter_Debouncing' size='6' value='~cfg_meter_Debouncing~'>&ensp;
-	<input type="submit" value="Set" class="button">
-</form>
-<br>
+	UDP debug, ip: <input title="'A?' - Show IP, PORT
+'I?' - UDP, TCP, WEB pcb info
+'M?' - System memory info
+'W?' - WiFi info
+'R?' - Restart module" name='ovl_cfg_ip' size='12' value='~ovl_cfg_ip~'>:<input title="default = 1025" name='ovl_cfg_arr0' size='4' value='~ovl_cfg_arr0~'>&ensp;
+	<input type='hidden' name='ovl' value='udplog.ovl'>
+<table><tr><input type="submit" value="Start" class="button">&ensp;~ovl_cfg_arr1~, err: ~ovl_cfg_arr2~&ensp;
+</form><form method="post"><input type='hidden' name='ovl$' value='0'><input type="submit" value="Stop" class="button"></form>
+<tr></table>
 </p>
 <p class="center">
-Save <a href="/adc.wav">Test WAV</a><br><br>
-Page <a href="/sample.htm">Vars Sample</a>, <a href="/websock.htm">Websock Sample</a><br><br>
-Get <a href="/protect/system.xml">system.xml</a>, <a href="/protect/aps.xml">aps.xml</a>, <a href="/protect/pr_request.xml">pr_request.xml</a><br><br><br>
+Get <a href="/protect/system.xml">system.xml</a>, <a href="/protect/aps.xml">aps.xml</a>, <a href="/protect/pr_request.xml">pr_request.xml</a><br><br>
 <a title='Not work for any mode...' href='/timeout.htm?sys_reset=12345'>SoftWare Reset</a>, <a title='Not work for any mode...' href='/timeout.htm?sys_restart=12345'>System Restart</a><br><br>
 Counter erase the last flash sector in the Chinese SDK, to save 28 bytes: ~sys_rdec0x4027F008~!<br>
 <br>
@@ -62,7 +65,7 @@ return ("0" + n).slice(-2);
 function SetOnChange() {
 	var s = document.getElementById('set_time').value;
 	var d = new Date(Number(s.substr(6,4)), Number(s.substr(3,2))-1, Number(s.substr(0,2)), Number(s.substr(11,2)), Number(s.substr(14,2)), 0, 0);
-	newAJAXCommand('?cfg_sntp_time='+(d.valueOf()/1000));
+	window.location.replace(window.location.href + '?cfg_sntp_time='+(d.valueOf()/1000));
 }
 var f = document.getElementById('set_time');
 var d = new Date(f.value * 1000);

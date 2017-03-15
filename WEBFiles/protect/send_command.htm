@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html><head>
+	<meta http-equiv="Content-type" content="text/html; charset=utf-8">
+	<title>Power Meter Send command</title>
+	<link rel="stylesheet" href="../style.css">
+</head><body>
+~inc:menumain.inc~
+	<div class="content">
+		<h2 class="title">Send command to Power meter</h2>
+		<form method="post" action="" onsubmit="SubmitFunction()">
+			<table class="form">
+				<tr>
+					<td class="left">Send hex string, max 16 bytes (00 00 00...):
+				</tr>
+				<tr>
+					<td><input name='command_send' size='84' maxlength='50' value='~command_send~'></td>
+				</tr>
+				<tr>
+					<td class="left">Response hex (~command_resp_st~):</td>
+				</tr>
+				<tr>
+					<td><input value='~command_response~' size='84' readonly></td>
+				</tr>
+ 			</table>
+			<p class="center">
+				<input type="hidden" name="command_send_now" value="1">
+				<input type="submit" value="Send" class="button">
+			</p>
+		</form>
+	</div>
+~inc:footer.inc~
+<script src="cookie.js"></script>
+<script>
+function SubmitFunction() {
+	document.cookie = "refresh=1";
+}
+var tm = getCookie("refresh");
+if(tm == '1') {
+	document.cookie = "refresh=0;exipres=Thu, 01 Jan 1970 00:00:00 UTC";
+	setTimeout(function(){ window.location.replace(window.location.href); }, 1000);
+}
+</script>
+</body></html>

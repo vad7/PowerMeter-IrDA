@@ -1089,7 +1089,7 @@ struct pbuf*
 pbuf_coalesce(struct pbuf *p, pbuf_layer layer)
 {
   struct pbuf *q;
-  err_t err;
+  //err_t err;
   if (p->next == NULL) {
     return p;
   }
@@ -1098,8 +1098,9 @@ pbuf_coalesce(struct pbuf *p, pbuf_layer layer)
     /* @todo: what do we do now? */
     return p;
   }
-  err = pbuf_copy(q, p);
-  LWIP_ASSERT("pbuf_copy failed", err == ERR_OK);
+  pbuf_copy(q, p);
+  //err = pbuf_copy(q, p);
+  //LWIP_ASSERT("pbuf_copy failed", err == ERR_OK);
   pbuf_free(p);
   return q;
 }

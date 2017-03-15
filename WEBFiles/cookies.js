@@ -1,3 +1,4 @@
+var cookie_path = "/";
 function getCookie(name) {
 	var prefix = name + "=";
 	var cookieStartIndex = document.cookie.indexOf(prefix);
@@ -11,7 +12,11 @@ function getCookie(name) {
 			cookieEndIndex));
 }
 function setCookie(name, value) {
-	document.cookie = name + "=" + escape(value) + "; path=/";
+//    var d = new Date();
+//    d.setTime(d.getTime() + (1000 * 86400000));
+//    var expires = ";expires="+d.toUTCString();
+	var expires = "";
+ 	document.cookie = name + "=" + escape(value) + expires + ";path=" + cookie_path;
 }
 function setCookieElem(name, defv) {
 	var val = getCookie(name);

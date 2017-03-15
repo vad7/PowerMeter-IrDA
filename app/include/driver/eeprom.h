@@ -35,6 +35,13 @@
 #define eeprom_init(freq) spi_init(freq)
 uint8_t eeprom_read_block(uint32_t addr, uint8_t *buffer, uint32_t len);
 uint8_t eeprom_write_block(uint32_t addr, uint8_t *buffer, uint32_t len);
+#else
+#define MAX_EEPROM_BLOCK_LEN					4
+#include "c_types.h"
+uint8_t eeprom_dummy(uint32_t addr, uint8_t *buffer, uint32_t len);
+#define eeprom_read_block(addr, buffer, len) 	eeprom_dummy(addr, buffer, len)
+#define eeprom_write_block(addr, buffer, len) 	eeprom_dummy(addr, buffer, len)
+#define eeprom_init(freq)
 #endif
 #endif
 

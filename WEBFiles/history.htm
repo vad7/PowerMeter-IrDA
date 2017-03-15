@@ -1,172 +1,211 @@
 <!DOCTYPE html>
 <html><head>
 	<meta http-equiv="Content-type" content="text/html; charset=utf-8">
-	<title>History</title>
-	<link rel="stylesheet" href="/style.css">
+	<title>История</title>
+	<link rel="stylesheet" href="style.css">
+	<script type="text/javascript" src="http://d3js.org/d3.v3.js"></script>
 </head>
-<style>
-svg {
-	font: 8px sans-serif;
-}
-.area {
-	fill: steelblue;
-	clip-path: url(#clip);
-}
-.axis path,
-.axis line {
-	fill: none;
-	stroke: #000;
-	shape-rendering: crispEdges;
-}
-.brush .extent {
-	stroke: #fff;
-	fill-opacity: .125;
-	shape-rendering: crispEdges;
-}
-</style>
 <body>
 ~inc:menumain.inc~
-<script src="http://d3js.org/d3.v3.min.js"></script>
-<script>
-var margin = {top: 10, right: 40, bottom: 80, left: 40},
-	margin2 = {top: 250, right: 40, bottom: 20, left: 40},
-	width = 640 - margin.left - margin.right,
-	height = 300 - margin.top - margin.bottom,
-	height2 = 300 - margin2.top - margin2.bottom;
-
-var parseDate = d3.time.format("%Y-%m-%d %X").parse;
-
-var customTimeFormat = d3.time.format.multi([
-	[".%L", function(d) { return d.getMilliseconds(); }],
-	[":%S", function(d) { return d.getSeconds(); }],
-	["%H:%M", function(d) { return d.getMinutes(); }],
-	["%H", function(d) { return d.getHours(); }],
-	["%a %d", function(d) { return d.getDay() && d.getDate() != 1; }],
-	["%b %d", function(d) { return d.getDate() != 1; }],
-	["%B", function(d) { return d.getMonth(); }],
-	["%Y", function() { return true; }]
-]);
-
-var x = d3.time.scale().range([0, width]),
-	x2 = d3.time.scale().range([0, width]),
-	y = d3.scale.linear().range([height, 0]),
-	y2 = d3.scale.linear().range([height2, 0]);
-
-var xAxis = d3.svg.axis().scale(x).tickFormat(customTimeFormat).ticks(20).orient("bottom"),
-	xAxis2 = d3.svg.axis().scale(x2).tickFormat(customTimeFormat).ticks(20).orient("bottom"),
-	yAxis = d3.svg.axis().scale(y).ticks(20).orient("left");
-	yAxis2 = d3.svg.axis().scale(y).ticks(20).orient("right");
-
-var brush = d3.svg.brush()
-	.x(x2)
-	.on("brush", brushed);
-
-var area = d3.svg.area()
-	.interpolate("linear")
-	.x(function(d) { return x(d.date); })
-	.y0(height)
-	.y1(function(d) { return y(d.value); });
-
-var area2 = d3.svg.area()
-	.interpolate("linear")
-	.x(function(d) { return x2(d.date); })
-	.y0(height2)
-	.y1(function(d) { return y2(d.value); });
-
-if("~ShowBy~" == "2") {
-	area.interpolate("step-after");
-	area2.interpolate("step-after");
-}
-
-var svg = d3.select("body").append("svg")
-	.attr("width", width + margin.left + margin.right)
-	.attr("height", height + margin.top + margin.bottom);
-
-svg.append("defs").append("clipPath")
-	.attr("id", "clip")
-	.append("rect")
-	.attr("width", width)
-	.attr("height", height);
-
-var focus = svg.append("g")
-	.attr("class", "focus")
-	.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
-
-var context = svg.append("g")
-	.attr("class", "context")
-	.attr("transform", "translate(" + margin2.left + "," + margin2.top + ")");
-
-d3.csv("history.csv", type, function(error, data) {
-	x.domain(d3.extent(data.map(function(d) { return d.date; })));
-	y.domain([0, d3.max(data.map(function(d) { return d.value; }))]);
-	x2.domain(x.domain());
-	y2.domain(y.domain());
-
-	focus.append("path")
-		.datum(data)
-		.attr("class", "area")
-		.attr("d", area);
-  
-	focus.append("g")
-		.attr("class", "x axis")
-		.attr("transform", "translate(0," + height + ")")
-		.call(xAxis);
-  
-	focus.append("g")
-		.attr("class", "y axis")
-		.call(yAxis);
-
-	focus.append("g")
-		.attr("class", "y axis")
-		.attr("transform", "translate(" + width + ",0)")
-		.call(yAxis2);
-  
-	context.append("path")
-		.datum(data)
-		.attr("class", "area")
-		.attr("d", area2);
-  
-	context.append("g")
-		.attr("class", "x axis")
-		.attr("transform", "translate(0," + height2 + ")")
-		.call(xAxis2);
-  
-	context.append("g")
-		.attr("class", "x brush")
-		.call(brush)
-		.selectAll("rect")
-		.attr("y", -6)
-		.attr("height", height2 + 7);
-
-});
-function brushed() {
-	x.domain(brush.empty() ? x2.domain() : brush.extent());
-	focus.select(".area").attr("d", area);
-	focus.select(".x.axis").call(xAxis);
-}
-function type(d) {
-	d.date = parseDate(d.date);
-	d.value = +d.value;
-	return d;
-}
-</script>
-<br><br><br>
-<form method="post" action="history.htm">
-Max days: <input type="text" id="ChartMaxDays" maxlength="10" size="5" title="0 - all">
-&nbsp <input type="checkbox" id="ShowByKWT"> kWt, &nbsp;
-By: <input type="radio" id="ShowBy" name="ShowBy" value="0"> all <input type="radio" name="ShowBy" value="1"> day <input type="radio" name="ShowBy" value="2"> hour &nbsp;
-<input type="submit" value="Refresh" onClick="updCookie('ChartMaxDays');updCookie('ShowBy');updCookie('ShowByKWT');" class="button">
-</form>
-<br>
-Last: <span id="time__~TotalCntTime~_1">?</span><br>
-Download: <a href="history.csv">History.csv</a> &nbsp;&nbsp; <a href="historycnt.csv">Cumulative total</a> &nbsp;&nbsp; 
-<a href="/protect/fram_all.bin">FRAM memory</a><br>
+<div class="content">
+ <div class="center">
+	<form>
+		<label><input type="radio" name="mode" value="stacked"> В один столбец</label>
+		<label><input type="radio" name="mode" value="grouped"> Рядом</label>
+	</form>
+	<div id="chart-svg"></div>
+ </div>
+ <br>
+ <form method="post" action="history.htm">
+Дней: <input type="text" id="ChartMaxDays" maxlength="10" size="5" title="0 - all">&nbsp &nbsp
+Группировка: <input type="radio" id="ShowBy" name="ShowBy" value="1"> день <input type="radio" name="ShowBy" value="2"> час &nbsp;
+ <input type="submit" value="Обновить" onClick="updCookie('ChartMaxDays');updCookie('ShowBy');" class="button">
+ </form>
+ <br>
+Скачать: <a href="history.csv">History.csv</a> &nbsp;&nbsp; <a href="historycnt.csv">Итого</a> &nbsp;&nbsp; 
+Обновлено: <span id="timecnt">~TotalCntTime~</span><br>
+</div>
 ~inc:footer.inc~
 <script src="cookies.js"></script>
 <script>
-	setCookieElem("ShowByKWT", "~ShowByKWT~");
+	cookie_path = "history";
 	setCookieElem("ChartMaxDays", "~ChartMaxDays~");
 	setCookieElem("ShowBy", "~ShowBy~");
 </script>
 ~inc:time.inc~
+<script>
+var nLayers = 2;
+
+var margin = {top: 45, right: 10, bottom: 80, left: 60},
+	width = 640 - margin.left - margin.right,
+	height = 400 - margin.top - margin.bottom;
+
+var svg = d3.select("#chart-svg").append("svg")
+	.attr("width", width + margin.left + margin.right)
+	.attr("height", height + margin.top + margin.bottom)
+	.append("g")
+	.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+d3.csv("history.csv", function (data){
+
+	data.reverse();
+	var headers = d3.keys(data[0]);
+	headers.shift();
+
+	var layers = d3.layout.stack()(headers.map(function(Range) {
+		return data.map(function(d) {
+		  return {x: d.time, y: +d[Range]};
+		});
+	}));
+	
+	var yGroupMax = d3.max(layers, function(layer) { return d3.max(layer, function(d) { return d.y; }); });
+	var yStackMax = d3.max(layers, function(layer) { return d3.max(layer, function(d) { return d.y0 + d.y; }); });
+
+	var xScale = d3.scale.ordinal()
+		.domain(layers[0].map(function(d) { return d.x; }))
+		.rangeRoundBands([25, width], .08);
+
+	var y = d3.scale.linear()
+		.domain([0, yStackMax])
+		.range([height, 0]);
+
+	var color = d3.scale.ordinal()
+		.domain(headers)
+		.range(["steelblue", "green"]);
+	  
+	var xAxis = d3.svg.axis()
+		.scale(xScale)
+		.tickSize(1)
+		.tickPadding(6)
+		.orient("bottom");
+
+	var yAxis = d3.svg.axis()
+		.scale(y)
+		.tickSize(1)
+		.orient("left");
+
+	var layer = svg.selectAll(".layer")
+		.data(layers)
+		.enter().append("g")
+		.attr("class", "layer")
+		.style("fill", function(d, i) { return color(i); });
+
+	var rect = layer.selectAll("rect")
+		.data(function(d) { return d; })
+		.enter().append("rect")
+		.attr("x", function(d) { return xScale(d.x); })
+		.attr("y", height)
+		.attr("width", xScale.rangeBand())
+		.attr("height", 0);
+
+	rect.transition()
+		.delay(function(d, i) { return i * 10; })
+		.attr("y", function(d) { return y(d.y0 + d.y); })
+		.attr("height", function(d) { return y(d.y0) - y(d.y0 + d.y); });
+
+	svg.append("g")
+		.attr("class", "x axis")
+		.attr("transform", "translate(0," + height + ")")
+		.call(xAxis)
+		.selectAll("text").style("text-anchor", "end")
+			.attr("dx", "-.8em")
+			.attr("dy", ".15em")
+			.attr("transform", function(d) {
+				  return "rotate(-45)" 
+				});
+	
+	svg.append("g")
+		.attr("class", "y axis")
+		.attr("transform", "translate(20,0)")
+		.call(yAxis)
+	  .append("text")
+		.attr({"x": -30, "y": height + 20})
+		.attr("dy", ".50em")
+		.style("text-anchor", "end")
+		.text("кВт*ч");
+
+	if(headers.length > 1) {
+	  var legend = svg.selectAll(".legend")
+		.data(headers.slice().reverse())
+			.enter().append("g")
+			.attr("class", "legend")
+			.attr("transform", function(d, i) { return "translate(-10," + (-margin.top + i * 20) + ")"; });
+	   
+		legend.append("rect")
+			.attr("x", width - 18)
+			.attr("width", 18)
+			.attr("height", 18)
+			.style("fill", color);
+	
+		legend.append("text")
+			  .attr("x", width - 24)
+			  .attr("y", 9)
+			  .attr("dy", ".35em")
+			  .style("text-anchor", "end")
+			  .text(function(d) { return d;  });
+	}
+
+	d3.selectAll("input").on("change", change);
+
+//	var timeout = setTimeout(function() {
+//	  d3.select("input[value=\"grouped\"]").property("checked", true).each(change);
+//	}, 2000);
+	d3.select("input[value=\"stacked\"]").property("checked", true);
+
+	function change() {
+	  //clearTimeout(timeout);
+	  if(this.value === "grouped") transitionGrouped();
+	  else transitionStacked();
+	}
+
+	function transitionGrouped() {
+	  y.domain([0, yGroupMax]);
+
+	  rect.transition()
+		  .duration(300)
+		  .delay(function(d, i) { return i * 10; })
+		  .attr("x", function(d, i, j) { return xScale(d.x) + xScale.rangeBand() / nLayers * j; })
+		  .attr("width", xScale.rangeBand() / nLayers)
+		.transition()
+		  .attr("y", function(d) { return y(d.y); })
+		  .attr("height", function(d) { return height - y(d.y); });
+	};
+
+	function transitionStacked() {
+	  y.domain([0, yStackMax]);
+
+	  rect.transition()
+		  .duration(300)
+		  .delay(function(d, i) { return i * 10; })
+		  .attr("y", function(d) { return y(d.y0 + d.y); })
+		  .attr("height", function(d) { return y(d.y0) - y(d.y0 + d.y); })
+		.transition()
+		  .attr("x", function(d) { return xScale(d.x); })
+		  .attr("width", xScale.rangeBand());
+	};
+
+    var tooltip = svg.append("g")
+        .attr("class", "tooltip");
+        
+    tooltip.append("text")
+        .attr("x", 15)
+        .attr("dy", "1.2em")
+        .style("text-anchor", "middle")
+        .attr("font-size", "12px")
+        .attr("font-weight", "bold");
+
+	rect.on("mouseover", function() { 
+			tooltip.style("display", "inline-block");
+		})
+		.on("mouseout", function() {
+			tooltip.style("display", "none");
+		})
+		.on("mousemove", function(d) {
+			var xPosition = d3.mouse(this)[0] - 15;
+			var yPosition = d3.mouse(this)[1] - 25;
+			tooltip.attr("transform", "translate(" + xPosition + "," + yPosition + ")");
+			tooltip.select("text").text(d.y);
+		});
+});
+</script>
 </body></html>

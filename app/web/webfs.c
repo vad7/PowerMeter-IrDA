@@ -19,6 +19,7 @@
 #define MAX_FILE_NAME_LEN   64 // VarNameSize
 uint32 disk_base_addr DATA_IRAM_ATTR;
 #define WEBFS_HEAD_ADDR disk_base_addr
+#ifndef BUILD_FOR_OTA_512k
 /*
  *
  * Structure:
@@ -63,11 +64,11 @@ static uint32 fatCacheID DATA_IRAM_ATTR;
 // Number of files in this WEBFS image
 uint32 numFiles DATA_IRAM_ATTR;
 #else
-// Lock WEBFS access during the upgrade
-bool isWEBFSLocked;
 // Track the WEBFS File Handles
 // WEBFSStubs[0] is reserved for internal use (FAT access)
 WEBFS_STUB WEBFSStubs[MAX_WEBFS_OPENFILES+1]; // + HANDLE = 0
+// Lock WEBFS access during the upgrade
+bool isWEBFSLocked;
 // FAT record cache
 WEBFS_FAT_RECORD fatCache;
 // ID of currently loaded fatCache
@@ -437,36 +438,6 @@ void ICACHE_FLASH_ATTR WEBFS_Update(void)
 	else numFiles = 0;
 	fatCacheID = WEBFS_INVALID_FAT;
 }
-/****************************************************************************
- * WEBFS_max_size()
- ***************************************************************************/
-uint32 ICACHE_FLASH_ATTR WEBFS_max_size(void)
-{
-	uint32 size = spi_flash_real_size();
-	if(size > FLASH_MIN_SIZE) size -= WEBFS_DISK_ADDR_BIGFLASH;
-	else {
-		size = WEBFS_DISK_ADDR_MINFLASH_END - WEBFS_DISK_ADDR_MINFLASH_START;
-	}
-	return size;
-}
-/****************************************************************************
- * WEBFS_size()
- ***************************************************************************/
-uint32 ICACHE_FLASH_ATTR WEBFS_curent_size(void)
-{
-	uint32 size = 0;
-	if(numFiles) spi_flash_read(disk_base_addr + 8, &size, 4);
-	return size;
-}
-/****************************************************************************
- * WEBFS_size()
- ***************************************************************************/
-uint32 ICACHE_FLASH_ATTR WEBFS_base_addr(void)
-{
-	uint32 addr = WEBFS_DISK_ADDR_MINFLASH_START;
-	if(spi_flash_real_size() > FLASH_MIN_SIZE)	addr = WEBFS_DISK_ADDR_BIGFLASH;
-	return addr;
-}
 
 // Save cData to begin of the file.
 // wLen must be less or equal the filesize
@@ -503,4 +474,60 @@ uint32 ICACHE_FLASH_ATTR WEBFSUpdateFile(WEBFS_HANDLE hWEBFS, uint8* cData, uint
 	}
 	os_free(buf);
 	return 0;
+}
+
+#else
+int isWEBFSLocked = 1;
+uint32 numFiles;
+WEBFS_FAT_RECORD fatCache;
+void ICACHE_FLASH_ATTR WEBFSInit(void) {}
+void ICACHE_FLASH_ATTR WEBFSClose(WEBFS_HANDLE hWEBFS) {}
+uint32 ICACHE_FLASH_ATTR WEBFSGetBytesRem(WEBFS_HANDLE hWEBFS) { return 0; }
+WEBFS_HANDLE ICACHE_FLASH_ATTR WEBFSOpen(uint8* cFile) { return WEBFS_INVALID_HANDLE; }
+uint16 ICACHE_FLASH_ATTR WEBFSGetArray(WEBFS_HANDLE hWEBFS, uint8* cData, uint16 wLen) { return 0; }
+bool ICACHE_FLASH_ATTR WEBFSGetFilename(WEBFS_HANDLE hWEBFS, uint8* cName, uint16 wLen) { return 0; };
+bool ICACHE_FLASH_ATTR WEBFSSeek(WEBFS_HANDLE hWEBFS, uint32 dwOffset, WEBFS_SEEK_MODE tMode) { return 0; }
+
+#endif // BUILD_FOR_OTA_512k
+
+/****************************************************************************
+ * WEBFS_max_size()
+ ***************************************************************************/
+uint32 ICACHE_FLASH_ATTR WEBFS_max_size(void)
+{
+	return WEBFS_DISK_ADDR_END - WEBFS_base_addr();
+#if 0
+	uint32 size = spi_flash_real_size();
+	if(size > FLASH_MIN_SIZE) size -= WEBFS_DISK_ADDR_BIGFLASH;
+	else {
+		size = WEBFS_DISK_ADDR_END - WEBFS_DISK_ADDR_MINFLASH_START;
+	}
+	return size;
+#endif
+}
+/****************************************************************************
+ * WEBFS_size()
+ ***************************************************************************/
+uint32 ICACHE_FLASH_ATTR WEBFS_current_size(void)
+{
+	uint32 size = 0;
+	if(numFiles) spi_flash_read(disk_base_addr + 8, &size, 4);
+	return size;
+}
+/****************************************************************************
+ * WEBFS_size()
+ ***************************************************************************/
+uint32 ICACHE_FLASH_ATTR WEBFS_base_addr(void)
+{
+#if FIX_SDK_FLASH_SIZE > FLASH_MIN_SIZE
+	return WEBFS_DISK_ADDR_BIGFLASH;
+#else
+	return WEBFS_DISK_ADDR_MINFLASH_START;
+#endif
+#if 0
+	// dynamic disk position based on real flash size
+	uint32 addr = WEBFS_DISK_ADDR_MINFLASH_START;
+	if(spi_flash_real_size() > FLASH_MIN_SIZE)	addr = WEBFS_DISK_ADDR_BIGFLASH;
+	return addr;
+#endif
 }

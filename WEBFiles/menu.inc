@@ -1,5 +1,5 @@
-<h3 class="top">ESP8266 Built-in Web server <sup>&copy;</sup></h3>
-<div class="menu">
+<h3 class="top">Power Meter</sup></h3>
+<div class="menu" style="min-height:100px">
 	<div>
 		<a href="/index.htm">Main</a>
 		<a href="/protect/wifi.htm">WiFi settings</a>

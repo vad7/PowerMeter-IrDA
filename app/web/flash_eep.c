@@ -40,6 +40,11 @@
 #include "modbustcp.h"
 #endif
 
+struct SystemCfg syscfg;
+#if defined(USE_TCP2UART) || defined(USE_MODBUS)
+uint8 * tcp_client_url;
+#endif
+
 //-----------------------------------------------------------------------------
 #define mMIN(a, b)  ((a<b)?a:b)
 
@@ -119,6 +124,7 @@ LOCAL ICACHE_FLASH_ATTR uint32 get_addr_fobj(uint32 base, fobj_head *obj, bool f
 	while(faddr < fend);
 	return reta;
 }
+#ifndef BUILD_FOR_OTA_512k
 //-----------------------------------------------------------------------------
 // FunctionName : get_addr_fend
 // Поиск последнего пустого места в сегменте для записи объекта
@@ -241,6 +247,9 @@ bool ICACHE_FLASH_ATTR flash_save_cfg(void *ptr, uint16 id, uint16 size)
 	fobj_head fobj;
 	fobj.n.id = id;
 	fobj.n.size = size;
+#if DEBUGSOO > 4
+	os_printf("save id:%02x[%u] ", id, size);
+#endif
 
 	uint32 faddr = get_addr_bscfg(false);
 	uint32 xfaddr = get_addr_fobj(faddr, &fobj, false);
@@ -251,8 +260,8 @@ bool ICACHE_FLASH_ATTR flash_save_cfg(void *ptr, uint16 id, uint16 size)
 	if(retval) {
 		fobj.n.id = id;
 		fobj.n.size = size;
-		#if DEBUGSOO > 2
-			os_printf("save-id:%02x[%u] ", id, size);
+		#if DEBUGSOO > 4
+			os_printf(" wrote ");
 		#endif
 		faddr = get_addr_fobj_save(faddr, fobj);
 		if(faddr == 0) {
@@ -266,7 +275,7 @@ bool ICACHE_FLASH_ATTR flash_save_cfg(void *ptr, uint16 id, uint16 size)
 xEnd:
 	os_free(buf);
 #if DEBUGSOO > 4
-	os_printf(" - Ret %d\n", retval);
+	os_printf(" R%d\n", retval);
 #endif
 	return retval;
 #else
@@ -302,106 +311,8 @@ xEnd:
 #endif
 }
 //=============================================================================
-//- Прочитать объект из flash -------------------------------------------------
-//  Параметры:
-//   prt - указатель, куда сохранить
-//   id - идентификатор искомого объекта
-//   maxsize - сколько байт сохранить максимум из найденного объекта, по ptr
-//  Returns:
-//  -3 - error
-//  -2 - flash rd/wr/clr error
-//  -1 - не найден
-//   0..MAX_FOBJ_SIZE - ok, сохраненный размер объекта
-sint16 ICACHE_FLASH_ATTR flash_read_cfg(void *ptr, uint16 id, uint16 maxsize)
-{
-	if(maxsize > MAX_FOBJ_SIZE) return -3; // error
-	fobj_head fobj;
-	fobj.n.id = id;
-	fobj.n.size = 0;
-#if DEBUGSOO > 2
-	os_printf("read-id:%02x[%u] ", id, maxsize);
-#endif
-	uint32 faddr = get_addr_bscfg(false);
-	if(faddr < 4) return -faddr-1;
-	faddr = get_addr_fobj(faddr, &fobj, false);
-	if(faddr < 4) return -faddr-1;
-	maxsize = mMIN(fobj.n.size, maxsize);
-	if((maxsize)&&(flash_read(faddr + fobj_head_size, ptr, maxsize))) return -2; // error
-#if DEBUGSOO > 2
-		os_printf("ok,size:%u ", fobj.n.size);
-#endif
-	return fobj.n.size;
-}
-//=============================================================================
 //-- Сохранение системных настроек -------------------------------------------
 //=============================================================================
-struct SystemCfg syscfg;
-#if defined(USE_TCP2UART) || defined(USE_MODBUS)
-uint8 * tcp_client_url;
-#endif
-//-----------------------------------------------------------------------------
-// Чтение системных настроек
-//-----------------------------------------------------------------------------
-bool ICACHE_FLASH_ATTR sys_read_cfg(void) {
-#if defined(USE_TCP2UART) || defined(USE_MODBUS)
-	read_tcp_client_url();
-#endif
-	if(flash_read_cfg(&syscfg, ID_CFG_SYS, sizeof(syscfg)) != sizeof(syscfg)) {
-		syscfg.cfg.w = 0
-				| SYS_CFG_PIN_CLR_ENA
-#ifdef USE_TCP2UART
-				| SYS_CFG_T2U_REOPEN
-#endif
-#ifdef USE_MODBUS
-				| SYS_CFG_MDB_REOPEN
-#endif
-#ifdef USE_CPU_SPEED
-				| SYS_CFG_HI_SPEED
-#endif
-#if DEBUGSOO > 0
-				| SYS_CFG_DEBUG_ENA
-#endif
-#ifdef USE_NETBIOS
-	#if USE_NETBIOS
-				| SYS_CFG_NETBIOS_ENA
-	#endif
-#endif
-#ifdef USE_SNTP
-	#if USE_SNTP
-				| SYS_CFG_SNTP_ENA
-	#endif
-#endif
-#ifdef USE_CAPTDNS
-	#if USE_CAPTDNS
-				| SYS_CFG_CDNS_ENA
-	#endif
-#endif
-				;
-#ifdef USE_TCP2UART
-		syscfg.tcp2uart_port = DEFAULT_TCP2UART_PORT;
-		syscfg.tcp2uart_twrec = 0;
-		syscfg.tcp2uart_twcls = 0;
-#endif
-		syscfg.tcp_client_twait = 5000;
-#ifdef USE_WEB
-		syscfg.web_port = DEFAULT_WEB_PORT;
-		syscfg.web_twrec = 5;
-		syscfg.web_twcls = 5;
-#endif
-#ifdef USE_MODBUS
-		syscfg.mdb_twrec = 10;
-		syscfg.mdb_twcls = 10;
-		syscfg.mdb_port = DEFAULT_MDB_PORT;	// (=0 - отключен)
-		syscfg.mdb_id = DEFAULT_MDB_ID;
-#endif
-#if DEBUGSOO > 4
-		os_printf("CfgFlg: %X\n", syscfg.cfg.w);
-#endif
-		return false;
-	};
-//	if(syscfg.web_port == 0) syscfg.cfg.b.pin_clear_cfg_enable = 1;
-	return true;
-}
 //-----------------------------------------------------------------------------
 // Сохранение системных настроек
 //-----------------------------------------------------------------------------
@@ -493,3 +404,102 @@ int32 ICACHE_FLASH_ATTR current_cfg_length(void)
 	} while(faddr <= (base_addr + FMEMORY_SCFG_BANK_SIZE - bank_head_size - align(fobj_head_size+1)));
 	return faddr - base_addr;
 }
+
+#endif // BUILD_FOR_OTA_512k
+
+//=============================================================================
+//- Прочитать объект из flash -------------------------------------------------
+//  Параметры:
+//   prt - указатель, куда сохранить
+//   id - идентификатор искомого объекта
+//   maxsize - сколько байт сохранить максимум из найденного объекта, по ptr
+//  Returns:
+//  -3 - error
+//  -2 - flash rd/wr/clr error
+//  -1 - не найден
+//   0..MAX_FOBJ_SIZE - ok, сохраненный размер объекта
+sint16 ICACHE_FLASH_ATTR flash_read_cfg(void *ptr, uint16 id, uint16 maxsize)
+{
+	if(maxsize > MAX_FOBJ_SIZE) return -3; // error
+	fobj_head fobj;
+	fobj.n.id = id;
+	fobj.n.size = 0;
+#if DEBUGSOO > 2
+	os_printf("read-id:%02x[%u] ", id, maxsize);
+#endif
+	uint32 faddr = get_addr_bscfg(false);
+	if(faddr < 4) return -faddr-1;
+	faddr = get_addr_fobj(faddr, &fobj, false);
+	if(faddr < 4) return -faddr-1;
+	maxsize = mMIN(fobj.n.size, maxsize);
+	if((maxsize)&&(flash_read(faddr + fobj_head_size, ptr, maxsize))) return -2; // error
+#if DEBUGSOO > 2
+		os_printf("ok,size:%u ", fobj.n.size);
+#endif
+	return fobj.n.size;
+}
+
+//-----------------------------------------------------------------------------
+// Чтение системных настроек
+//-----------------------------------------------------------------------------
+bool ICACHE_FLASH_ATTR sys_read_cfg(void) {
+#if defined(USE_TCP2UART) || defined(USE_MODBUS)
+	read_tcp_client_url();
+#endif
+	if(flash_read_cfg(&syscfg, ID_CFG_SYS, sizeof(syscfg)) != sizeof(syscfg)) {
+		syscfg.cfg.w = 0
+//				| SYS_CFG_PIN_CLR_ENA
+#ifdef USE_TCP2UART
+				| SYS_CFG_T2U_REOPEN
+#endif
+#ifdef USE_MODBUS
+				| SYS_CFG_MDB_REOPEN
+#endif
+#ifdef USE_CPU_SPEED
+				| SYS_CFG_HI_SPEED
+#endif
+#if DEBUGSOO > 0
+				| SYS_CFG_DEBUG_ENA
+#endif
+#ifdef USE_NETBIOS
+	#if USE_NETBIOS
+				| SYS_CFG_NETBIOS_ENA
+	#endif
+#endif
+#ifdef USE_SNTP
+	#if USE_SNTP
+				| SYS_CFG_SNTP_ENA
+	#endif
+#endif
+#ifdef USE_CAPTDNS
+	#if USE_CAPTDNS
+				| SYS_CFG_CDNS_ENA
+	#endif
+#endif
+				;
+#ifdef USE_TCP2UART
+		syscfg.tcp2uart_port = DEFAULT_TCP2UART_PORT;
+		syscfg.tcp2uart_twrec = 0;
+		syscfg.tcp2uart_twcls = 0;
+#endif
+		syscfg.tcp_client_twait = 5000;
+#ifdef USE_WEB
+		syscfg.web_port = DEFAULT_WEB_PORT;
+		syscfg.web_twrec = 5;
+		syscfg.web_twcls = 5;
+#endif
+#ifdef USE_MODBUS
+		syscfg.mdb_twrec = 10;
+		syscfg.mdb_twcls = 10;
+		syscfg.mdb_port = DEFAULT_MDB_PORT;	// (=0 - отключен)
+		syscfg.mdb_id = DEFAULT_MDB_ID;
+#endif
+#if DEBUGSOO > 4
+		os_printf("CfgFlg: %X\n", syscfg.cfg.w);
+#endif
+		return false;
+	};
+//	if(syscfg.web_port == 0) syscfg.cfg.b.pin_clear_cfg_enable = 1;
+	return true;
+}
+

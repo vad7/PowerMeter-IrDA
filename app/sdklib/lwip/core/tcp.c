@@ -1536,7 +1536,7 @@ tcp_eff_send_mss(u16_t sendmss, ip_addr_t *addr)
 const char*
 tcp_debug_state_str(enum tcp_state s)
 {
-  system_get_string_from_flash(tcp_state_str_rodata[s], tcp_state_str, 12);
+	copy_s4d1(tcp_state_str, (void *)tcp_state_str_rodata[s], 12);
 
   return tcp_state_str;
 }

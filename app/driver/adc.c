@@ -6,6 +6,9 @@
  *
  */
 
+#include "user_config.h"
+#ifndef BUILD_FOR_OTA_512k
+
 #include "ets_sys.h"
 #include "osapi.h"
 #include "hw/esp8266.h"
@@ -98,3 +101,4 @@ void ICACHE_FLASH_ATTR read_adcs(uint16 *ptr, uint16 len, uint32 cfg)
 	sar_init(8,8); // 8,8 - значение по умолчанию, как в SDK
 */
 
+#endif

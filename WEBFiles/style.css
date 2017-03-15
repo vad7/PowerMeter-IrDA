@@ -33,8 +33,8 @@ text-align:center;
 border-top:#fab548 5px solid;
 background:#f1f1ed;
 padding:5px 5px 5px 120px;
-margin:0 0 10px 0;
-min-height:100px;
+margin:0 0 0px 0;
+min-height:80px;
 border-radius:5px;
 }
 .menu div{
@@ -172,7 +172,7 @@ background:#f1f1ed;
 border-radius:5px;
 border-top:#1486ba 5px solid;
 padding:10px;
-margin:0 0 10px 0;
+margin:0 0 0px 0;
 }
 .footer{
 border-top:#75be45 5px solid;;

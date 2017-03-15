@@ -44,14 +44,27 @@
 extern uint8 web_fini(const uint8 * fname);
 static const uint8 sysinifname[] ICACHE_RODATA_ATTR = "protect/init.ini";
 #endif
+#ifdef BUILD_FOR_OTA_512k
+#include "wifi_events.h"
+	os_timer_t check_wifi_timer DATA_IRAM_ATTR;
+void ICACHE_FLASH_ATTR check_wifi_timer_func(void) {
+	if(wifi_station_get_connect_status() != STATION_GOT_IP) return; // st connected?
+	if(!flg_open_all_service) {// some problem with WiFi here
+		wifi_station_disconnect();
+		wifi_station_connect();
+	}
+}
+#endif
 
 void ICACHE_FLASH_ATTR init_done_cb(void)
 {
 #if DEBUGSOO > 0
 	os_printf("\nSDK Init - Ok\nHeap size: %d bytes\n", system_get_free_heap_size());
-	os_printf("Flash ID: %08x, size: %u\n", spi_flash_get_id(), spi_flash_real_size());
+	os_printf("Flash ID: %08x, size: %u, SDK size: %u\n", spi_flash_get_id(), spi_flash_real_size(), flashchip->chip_size);
 	os_printf("PERIPHS_IO_MUX = %X\n\n",  READ_PERI_REG(PERIPHS_IO_MUX));
+	#ifndef BUILD_FOR_OTA_512k
     os_printf("Curr cfg size: %d b\n", current_cfg_length());
+	#endif
 
 	struct ets_store_wifi_hdr whd;
 	spi_flash_read(((flashchip->chip_size/flashchip->sector_size)-1)*flashchip->sector_size, &whd, sizeof(whd));
@@ -59,7 +72,7 @@ void ICACHE_FLASH_ATTR init_done_cb(void)
 #endif
 	//
 	user_initialize(2); // init FRAM, timer/tasks
-	ets_set_idle_cb(user_idle, NULL); // do not use sleep mode!
+	//ets_set_idle_cb(user_idle, NULL); // do not use sleep mode!
 	//
 #ifdef USE_WEB
 	web_fini(sysinifname);
@@ -75,6 +88,11 @@ void ICACHE_FLASH_ATTR init_done_cb(void)
 #ifdef USE_RS485DRV
 	rs485_drv_start();
 	init_mdbtab();
+#endif
+#ifdef BUILD_FOR_OTA_512k
+	ets_timer_disarm(&check_wifi_timer);
+	os_timer_setfn(&check_wifi_timer, (os_timer_func_t *)check_wifi_timer_func, NULL);
+	ets_timer_arm_new(&check_wifi_timer, 5000, 1, 1); // repeat msec
 #endif
 }
 
@@ -104,7 +122,9 @@ void ICACHE_FLASH_ATTR user_init(void) {
 #if (DEBUGSOO > 0 && defined(USE_WEB))
 	os_printf("\nSimple WEB version: " WEB_SVERSION "\n");
 #endif
-	//if(syscfg.cfg.b.pin_clear_cfg_enable) test_pin_clr_wifi_config(); // сброс настроек, если замкнут пин RX
+#ifdef USE_GPIO3_AS_CFG_RESET
+	if(syscfg.cfg.b.pin_clear_cfg_enable) test_pin_clr_wifi_config(); // сброс настроек, если замкнут пин RX
+#endif
 	set_cpu_clk(); // select cpu frequency 80 or 160 MHz
 #ifdef USE_GDBSTUB
 extern void gdbstub_init(void);

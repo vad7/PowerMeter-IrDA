@@ -318,7 +318,7 @@ static err_t ICACHE_FLASH_ATTR tcpsrv_server_recv(void *arg, struct tcp_pcb *pcb
 		tcp_recved(pcb, p->tot_len + ts_conn->unrecved_bytes); // сообщает стеку, что съели len и можно посылать ACK и принимать новые данные.
 		ts_conn->unrecved_bytes = 0;
 #if DEBUGSOO > 3
-		os_printf("rec_null %d of %d\n", ts_conn->cntri, p->tot_len);
+		os_printf("rec_null(%u,%u, %x) %d of %d\n", ts_conn->flag.rx_null, ts_conn->state, ts_conn->pcfg->func_recv, ts_conn->cntri, p->tot_len);
 #endif
 		pbuf_free(p); // данные выели
 		return ERR_OK;
@@ -930,7 +930,7 @@ static err_t ICACHE_FLASH_ATTR tcpsrv_connected(void *arg, struct tcp_pcb *tpcb,
  * Returns      : acception result
  *******************************************************************************/
 static err_t ICACHE_FLASH_ATTR tcpsrv_server_accept(void *arg, struct tcp_pcb *pcb, err_t err) {
-	struct tcp_pcb_listen *lpcb = (struct tcp_pcb_listen*) arg;
+	//struct tcp_pcb_listen *lpcb = (struct tcp_pcb_listen*) arg;
 	TCP_SERV_CFG *p = tcpsrv_server_port2pcfg(pcb->local_port);
 	TCP_SERV_CONN * ts_conn;
 

@@ -12,70 +12,73 @@
 #include "sntp.h"
 #include "debug_ram.h"
 
-#define I2C_SDA_PIN 			2
-#define I2C_SCL_PIN 			0
-#define SENSOR_PIN				3
-uint8_t SENSOR_FRONT_EDGE;
-uint8_t SENSOR_BACK_EDGE;
-#define	FRAM_SIZE_DEFAULT		32768
 #define FRAM_MAX_BLOCK_AT_ONCE 	64		// FARM SPI read/write is limited to 64 bytes at one time
-#define DEFAULT_PULSES_PER_0_01_KWT 6 // 600 per kWt
 #define TIME_STEP_SEC			60 // 1 minute
-#define SENSOR_TASK_PRIO			USER_TASK_PRIO_2 // Hi prio, _0,1 - may be used
 #define IOT_INI_MAX_FILE_SIZE	1024
+//#define SENSOR_PIN				3
+//#define SENSOR_TASK_PRIO		USER_TASK_PRIO_2 // Hi prio, _0,1 - may be used
+//uint8_t SENSOR_FRONT_EDGE;
+//uint8_t SENSOR_BACK_EDGE;
 
-typedef struct __attribute__((packed)) {
-	uint32 	Fram_Size;				// 32768
-	uint32  Debouncing_Timeout;		// us
-	uint16 	PulsesPer0_01KWt; 		// 6
-	uint16  fram_freq;				// i2c = 400 kHz / spi = 20 MHz
-	uint8	iot_cloud_enable;		// use "protect/iot_cloud.ini" to send data to iot cloud
-	char	csv_delimiter; 			// ','
-	uint8	ReverseSensorPulse;		// if 1 - FrontEdge = positive, BackEdge = negative
-	int16_t	TimeAdjust;				// -+ sec
-	uint16	TimeT1Start;			// hh,mm
-	uint16	TimeT1End;				// hh,mm. if TimeT1Start != TimeT1End != 0 - Dual tariffs used
+typedef struct {
+	uint32 	Fram_Size;			// 32768
+	uint16  fram_freq;			// i2c = 400 kHz / spi = 20 MHz
+	uint16	page_refresh_time;	// ms
+	char	csv_delimiter; 		// ','
+	char	csv_delimiter_dec;	// '.'
+	char	csv_delimiter_total;// ';'
+	char	csv_delimiter_total_dec;// ','
+	uint16 	unused;				//PulsesPer0_01KWt; 	// 10
+	uint16  request_period;		// sec
+	int16_t	TimeAdjust;			// -+ sec
+	uint16	TimeMaxMismatch;	// sec, between meter and SNTP time to correct time, 0 - dont.
+	uint16	TimeT1Start;		// hh,mm
+	uint16	TimeT1End;			// hh,mm. if TimeT1Start != TimeT1End != 0 - Dual tariffs used
+	uint32  pwmt_response_timeout; // us
+	uint32  pwmt_read_timeout;  // us
+	uint32  pwmt_delay_after_err;  // us
+	uint8	Pass[2][6];
+	uint8	iot_cloud_enable;	// use "protect/iot_cloud.ini" to send data to iot cloud
+	uint8	pwmt_address;		// power meter network address, 0 - group
 //	char sntp_server[20];
 } CFG_GLO;
 CFG_GLO __attribute__((aligned(4))) cfg_glo;
 
-typedef struct __attribute__((packed)) {
-	uint32 PowerCnt;	// not processed count
-	uint32 TotalCnt;	// saved value
-	uint32 PtrCurrent;
-	time_t LastTime;
-	uint32 TotalCntT1;	// TotalCntT2 = TotalCnt - TotalCntT1
-	//uint8 Reserved[];
+typedef struct {
+	struct {
+		uint32 PowerCnt;	// not processed count
+		uint32 TotalCnt;	// saved value
+		uint32 PtrCurrent;	// ArrayOfCntsElement size array
+		time_t LastTime;
+		uint32 PreviousTotalW;  // w*h
+	} ByMin;
+	uint32 LastTotal;		// 0.000 kwt*h
+	uint32 LastTotal_T1;	// 0.000 kwt*h
+	uint32 PtrCurrentByDay;	// StartArrayByDay index
+	uint16 LastDay;			// day+1 (time_t/SECSPERDAY)
 } FRAM_STORE;
 FRAM_STORE __attribute__((aligned(4))) fram_store;
-#define StartArrayOfCnts	32 // Start pos, packed: if [cell] = 0 and [cell+1] > 1, then [cell+1] = How many minutes was 0.
-
-typedef struct __attribute__((packed)) {
-	uint8 Cnt1; // otherwise pulses in minute (max = 255)
-	uint8 Cnt2; // if Cnt1 == 0, Cnt2 = minutes of zero;
-	uint8 Cnt3; // always = 0
-	uint8 Cnt4; // always = 0
-} CNT_CURRENT;
-CNT_CURRENT __attribute__((aligned(4))) CntCurrent; // = {0, 0, 0, 0};
+#define ArrayByDayStart		STORE_FLASH_ADDR // sector rounded, array[2] of (NewTotal-LastTotal), kwt*h
+#define ArrayByDaySize		65536 // 8192 days
+typedef uint32 ArrayByDayElement[2]; // 8 bytes { uint32 delta TAll; uint32 delta T1 }
+#define ArrayOfCntsStart	(((ArrayByDayStart + ArrayByDaySize) + (flashchip_sector_size - 1)) & ~(flashchip_sector_size - 1)) // until end of flash
+uint32  ArrayOfCntsSize;
+#define ArrayOfCntsElement	2 // uint16
 
 uint32 LastCnt;				// Last cnt
 uint32 LastCnt_Previous;
-uint32 KWT_Previous;		// *1000
+uint32 KWT_Previous;
 // Cookies:
 uint32 Web_ChartMaxDays; 	// ~ChartMaxDays~
-uint8  Web_ShowByKWT; 		// ~ShowByKWT~
 uint8  Web_ShowBy; 			// ~ShowBy~ : 0 - all, 1 - by day, 2 - by hour
 //
-
 void user_initialize(uint8 index) ICACHE_FLASH_ATTR;
 void FRAM_Store_Init(void) ICACHE_FLASH_ATTR;
-void user_idle(void); // ICACHE_FLASH_ATTR;
 bool write_power_meter_cfg(void) ICACHE_FLASH_ATTR;
-void power_meter_clear_all_data(void) ICACHE_FLASH_ATTR;
+void power_meter_clear_all_data(uint8 mask) ICACHE_FLASH_ATTR;
 uint8_t iot_cloud_init(void) ICACHE_FLASH_ATTR;
 void iot_data_clear(void) ICACHE_FLASH_ATTR;
 void iot_cloud_send(uint8 fwork) ICACHE_FLASH_ATTR;
-uint8_t check_add_CntT1(time_t *LastTime, uint32 *CntT1, uint32 add) ICACHE_FLASH_ATTR;
 
 void uart_wait_tx_fifo_empty(void) ICACHE_FLASH_ATTR;
 void _localtime(time_t * tim_p, struct tm * res) ICACHE_FLASH_ATTR;

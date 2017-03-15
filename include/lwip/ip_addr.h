@@ -209,13 +209,14 @@ u8_t ip4_addr_netmask_valid(u32_t netmask)ICACHE_FLASH_ATTR;
 
 #define ip_addr_islinklocal(addr1) (((addr1)->addr & PP_HTONL(0xffff0000UL)) == PP_HTONL(0xa9fe0000UL))
 
-#define ip_addr_debug_print(debug, ipaddr) \
+#define ip_addr_debug_print(debug, ipaddr) LWIP_DEBUGF(debug, ("IP:%X", *ipaddr))
+/*#define ip_addr_debug_print(debug, ipaddr) \
   LWIP_DEBUGF(debug, ("%"U16_F".%"U16_F".%"U16_F".%"U16_F,             \
                       ipaddr != NULL ? ip4_addr1_16(ipaddr) : 0,       \
                       ipaddr != NULL ? ip4_addr2_16(ipaddr) : 0,       \
                       ipaddr != NULL ? ip4_addr3_16(ipaddr) : 0,       \
                       ipaddr != NULL ? ip4_addr4_16(ipaddr) : 0))
-
+*/
 /* Get one byte from the 4-byte address */
 #define ip4_addr1(ipaddr) (((u8_t*)(ipaddr))[0])
 #define ip4_addr2(ipaddr) (((u8_t*)(ipaddr))[1])

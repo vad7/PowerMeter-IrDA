@@ -5,6 +5,7 @@
  * ver1.1 02/04/2015  SDK 1.0.1
  *******************************************************************************/
 #include "user_config.h"
+#ifndef BUILD_FOR_OTA_512k
 #include "ets_sys.h"
 #include "os_type.h"
 #include "osapi.h"
@@ -66,3 +67,5 @@ bool ICACHE_FLASH_ATTR write_sys_const(uint8 idx, uint8 data) {
 	else return true;
 	return false;
 }
+
+#endif

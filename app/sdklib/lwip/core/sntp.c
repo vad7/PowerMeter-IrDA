@@ -305,7 +305,7 @@ static ip_addr_t sntp_last_server_address;
  * to compare against in response */
 static u32_t sntp_last_timestamp_sent[2] LWIP_DATA_IRAM_ATTR;
 #endif /* SNTP_CHECK_RESPONSE >= 2 */
-typedef long     time_t;
+typedef unsigned long time_t;
 //uint32 current_stamp_1 = 0;
 //uint32 current_stamp_2 = 0;
 uint32 realtime_stamp LWIP_DATA_IRAM_ATTR; // = 0;

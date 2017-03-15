@@ -16,6 +16,8 @@
 #include "user_interface.h"
 #include "driver/i2c.h"
 
+void uart_wait_tx_fifo_empty(void) ICACHE_FLASH_ATTR;
+
 #define I2C_DELAY_US		5 // 4.7us - 100kb, 1.3us - 400kb
 
 #define SET_SDA_LOW			GPIO_OUT_W1TC = (1<<I2C_SDA_PIN)
@@ -44,8 +46,6 @@ void ICACHE_FLASH_ATTR i2c_init(uint32 freq)
 	GPIO_OUT_W1TS = (1<<I2C_SDA_PIN) | (1<<I2C_SCL_PIN); // Set HI (WO)
 	GPIO_ENABLE_W1TS = (1<<I2C_SDA_PIN) | (1<<I2C_SCL_PIN); // Enable output (WO)
 	ets_intr_unlock();
-	#if DEBUGSOO > 2
-	#endif
 #ifndef IC2_MULTI_MASTER
 	i2c_delay();
 	if(GET_SDA == 0) { // some problem here

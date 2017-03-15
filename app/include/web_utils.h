@@ -31,6 +31,7 @@ uint32 str_array(uint8 *s, uint32 *buf, uint32 max_buf) ICACHE_FLASH_ATTR;
 uint32 str_array_w(uint8 *s, uint16 *buf, uint32 max_buf) ICACHE_FLASH_ATTR;
 uint32 str_array_b(uint8 *s, uint8 *buf, uint32 max_buf) ICACHE_FLASH_ATTR;
 char* word_to_lower_case(char* text) ICACHE_FLASH_ATTR;
+uint32 str_array_hex_byte(uint8 *s, uint8 *buf, uint32 buf_size) ICACHE_FLASH_ATTR;
 
 bool str_cmp_wildcards(char* wildstring, char *matchstring) ICACHE_FLASH_ATTR;
 

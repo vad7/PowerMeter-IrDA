@@ -5,6 +5,8 @@
 
 #include "user_config.h"
 #ifdef USE_WEB
+#include "c_types.h"
+#ifndef BUILD_FOR_OTA_512k
 #include "bios.h"
 #include "sdk/add_func.h"
 #include "hw/esp8266.h"
@@ -28,10 +30,11 @@
 #include "sys_const_utils.h"
 #include "wifi_events.h"
 #include "driver/spi_register.h"
-#include "power_meter.h"
 #include "driver/eeprom.h"
-#include "time.h"
+#include "localtime.h"
 #include "iot_cloud.h"
+#include "power_meter.h"
+#include "mercury.h"
 
 #ifdef USE_NETBIOS
 #include "netbios.h"
@@ -134,6 +137,78 @@ void ICACHE_FLASH_ATTR web_test_adc(TCP_SERV_CONN *ts_conn)
     SetSCB(SCB_FCLOSE | SCB_DISCONNECT); // connection close
 }
 #endif // TEST_SEND_WAVE
+
+
+int32 ICACHE_FLASH_ATTR web_power_xml_add_element(WEB_SRV_CONN *web_conn, uint32 *arr, uint32 *arr_minus, uint32 arr_max)
+{
+	int32 total = 0;
+	uint8 i;
+	for(i = 1; i <= arr_max; i++) {
+		int32 value = *arr++ - (arr_minus == NULL? 0 : *arr_minus++);
+		tcp_puts_fd("<e%d>%d</e%d>", i, value, i);
+		total += value;
+	}
+	return total;
+}
+// Print power table as xml
+void ICACHE_FLASH_ATTR web_power_xml(TCP_SERV_CONN *ts_conn)
+{
+	WEB_SRV_CONN *web_conn = (WEB_SRV_CONN *) ts_conn->linkd;
+	#if DEBUGSOO > 4
+		os_printf("power_xml: %d\n", web_conn->udata_start);
+	#endif
+//	if(CheckSCB(SCB_RETRYCB)==0) { // Check if this is a first round call
+//	} else { // continue label #
+		if(web_conn->udata_start == 1) goto x1;
+		else if(web_conn->udata_start == 2) goto x2;
+		else if(web_conn->udata_start == 3) goto x3;
+		else if(web_conn->udata_start == 4) goto x4;
+//	}
+	if(web_conn->msgbuflen + 250 <= web_conn->msgbufsize) { // +max string size
+    	tcp_puts_fd("<time>%u</time>\n", sntp_local_to_UTC_time(pwmt_cur.Time));
+    	tcp_puts_fd("<time_sntp>%u</time_sntp>\n", sntp_local_to_UTC_time(pwmt_cur.sntp_time ? pwmt_cur.sntp_time : get_sntp_localtime()));
+		tcp_puts_fd("<P>");
+		web_power_xml_add_element(web_conn, &pwmt_cur.P[1], NULL,  3);
+		tcp_puts_fd("<e4>%d</e4></P>\n<S>", pwmt_cur.P[0]);
+		web_power_xml_add_element(web_conn, &pwmt_cur.S[1], NULL,  3);
+		tcp_puts_fd("<e4>%d</e4></S>\n<cur>", pwmt_cur.S[0]);
+		web_conn->udata_start = 1;
+x1:		if(web_conn->msgbuflen + 200 <= web_conn->msgbufsize) { // +max string size
+			uint32 total = web_power_xml_add_element(web_conn, &pwmt_cur.I[0], NULL, 3);
+			tcp_puts_fd("<e4>%d</e4></cur>\n<volt>", total);
+			web_power_xml_add_element(web_conn, &pwmt_cur.U[0], NULL, 3);
+			tcp_puts_fd("</volt>\n<pf>");
+			web_power_xml_add_element(web_conn, &pwmt_cur.K[1], NULL, 3);
+			tcp_puts_fd("<e4>%d</e4></pf>\n<en_t1>", pwmt_cur.K[0]);
+			web_conn->udata_start = 2;
+x2:			if(web_conn->msgbuflen + 250 <= web_conn->msgbufsize) { // +max string size
+				total = web_power_xml_add_element(web_conn, &pwmt_cur.Total_T1[0], NULL, 3);
+				tcp_puts_fd("<e4>%d</e4></en_t1>\n<en_t2>", total);
+				total = web_power_xml_add_element(web_conn, &pwmt_cur.Total[0], &pwmt_cur.Total_T1[0], 3);
+				tcp_puts_fd("<e4>%d</e4></en_t2>\n<en>", total);
+				total = web_power_xml_add_element(web_conn, &pwmt_cur.Total[0], NULL, 3);
+				tcp_puts_fd("<e4>%d</e4></en>\n", total);
+				web_conn->udata_start = 3;
+x3:				if(web_conn->msgbuflen + 200 <= web_conn->msgbufsize) { // +max string size
+					tcp_puts_fd("<day><e1>%d</e1><e2>%d</e2><e3>%d</e3></day>\n", pwmt_arch.Today_T1, pwmt_arch.Today - pwmt_arch.Today_T1, pwmt_arch.Today);
+					tcp_puts_fd("<Yday><e1>%d</e1><e2>%d</e2><e3>%d</e3></Yday>\n", pwmt_arch.Yesterday_T1, pwmt_arch.Yesterday - pwmt_arch.Yesterday_T1, pwmt_arch.Yesterday);
+					tcp_puts_fd("<Mon><e1>%d</e1><e2>%d</e2><e3>%d</e3></Mon>\n", pwmt_arch.ThisMonth_T1, pwmt_arch.ThisMonth - pwmt_arch.ThisMonth_T1, pwmt_arch.ThisMonth);
+					web_conn->udata_start = 4;
+x4:					if(web_conn->msgbuflen + 220 <= web_conn->msgbufsize) { // +max string size
+						tcp_puts_fd("<PMon><e1>%d</e1><e2>%d</e2><e3>%d</e3></PMon>\n", pwmt_arch.PrevMonth_T1, pwmt_arch.PrevMonth - pwmt_arch.PrevMonth_T1, pwmt_arch.PrevMonth);
+						tcp_puts_fd("<Year><e1>%d</e1><e2>%d</e2><e3>%d</e3></Year>\n", pwmt_arch.ThisYear_T1, pwmt_arch.ThisYear - pwmt_arch.ThisYear_T1, pwmt_arch.ThisYear);
+						tcp_puts_fd("<PYear><e1>%d</e1><e2>%d</e2><e3>%d</e3></PYear>\n", pwmt_arch.PrevYear_T1, pwmt_arch.PrevYear - pwmt_arch.PrevYear_T1, pwmt_arch.PrevYear);
+						ClrSCB(SCB_RETRYCB);
+						return;
+					}
+				}
+			}
+		}
+	}
+	// repeat in the next call ...
+	SetSCB(SCB_RETRYCB);
+	SetNextFunSCB(web_power_xml);
+}
 
 // Send text file until zero byte found.
 // web_conn->udata_stop - WEBFS handle
@@ -384,22 +459,13 @@ void ICACHE_FLASH_ATTR web_hexdump(TCP_SERV_CONN *ts_conn)
 
 //---------------------------- output history.csv ---------------------------
 typedef struct {
-	uint32 	PtrCurrent; 	// ptr in the FRAM array
+	uint32 	PtrCurrent; 	// ptr in array
 	time_t 	LastTime;		// Last printed time
-	time_t	PreviousTime; 	// Previous printed time
 	int32_t	minutes;		// How many minutes printed
-	bool 	FlagContinue;	// Need continue print packed
 	uint8_t OutType;		// HST_*
-	int32_t	len;
-	int32_t	i;
-	bool 	packed_flag;
-	uint8_t	n;
-	uint32	previous_n;		// to skip multi-zeros or in TotalCnt mode the same value
+	char 	delimiter_csv;
 	uint32	Sum;			// for OutType by date / TotalCnt
-	uint32	SumT1;			// for OutType by date / TotalCnt
-	uint32	*Hours;
-	uint16_t StringSizeMax;  // 32, 64, 900
-	uint8_t	buf[MAX_EEPROM_BLOCK_LEN];
+	uint32	Hours[25];
 } history_output;
 
 // history_output.OutType
@@ -407,46 +473,44 @@ typedef struct {
 #define HST_TotalCnt	0b1000
 #define HST_ByHour		0b0100
 #define HST_ByDay		0b0010
-#define HST_kWt			0b0001
+//#define HST_kWt			0b0001
 
 // return True if overflow
-void web_get_history_put_csv_str(WEB_SRV_CONN *web_conn, history_output *hst, time_t Time, uint32_t num)
+void ICACHE_FLASH_ATTR web_get_history_put_csv_str(WEB_SRV_CONN *web_conn, history_output *hst, time_t Time, uint32_t num)
 {
-	struct tm tm;
+	char dd;
 	if(hst->OutType & HST_TotalCnt) Time -= 60; // TotalCnt
+	struct tm tm;
 	_localtime(&Time, &tm);
-	tcp_puts("%04d-%02d-%02d %02d:%02d:00%c", 1900+tm.tm_year, 1+tm.tm_mon, tm.tm_mday, tm.tm_hour, tm.tm_min, cfg_glo.csv_delimiter);
-	if(hst->OutType & HST_kWt) { // kWt
-		if((hst->OutType & (HST_TotalCnt | HST_ByHour | HST_ByDay)) == 0) num *= 60; // kwt per hour
-		uint32_t n = num * 10 / cfg_glo.PulsesPer0_01KWt;
-		tcp_puts("%u.%03u", n / 1000, n % 1000);
-		if(hst->OutType & HST_MTariffs) {
-			n = hst->SumT1 * 10 / cfg_glo.PulsesPer0_01KWt;
-			tcp_puts("%c%u.%03u", cfg_glo.csv_delimiter, n / 1000, n % 1000);
-			n = (num - hst->SumT1) * 10 / cfg_glo.PulsesPer0_01KWt;
-			tcp_puts("%c%u.%03u", cfg_glo.csv_delimiter, n / 1000, n % 1000);
-		}
+	if(hst->OutType & HST_ByHour) {
+		tcp_puts("%02d:%02d", tm.tm_hour, tm.tm_min);
 	} else {
-		tcp_puts("%u", num);
-		if(hst->OutType & HST_MTariffs) {
-			tcp_puts("%c%u%c%u", cfg_glo.csv_delimiter, hst->SumT1, cfg_glo.csv_delimiter, num - hst->SumT1);
-		}
+		tcp_puts("%04d-%02d-%02d %02d:%02d:00", 1900+tm.tm_year, 1+tm.tm_mon, tm.tm_mday, tm.tm_hour, tm.tm_min);
 	}
-	tcp_puts("\r\n");
-	#if DEBUGSOO > 4
-		os_printf("%02d.%02d.%04d %02d:%02d:%02d,%d\n", tm.tm_mday, tm.tm_mon, tm.tm_year, tm.tm_hour, tm.tm_min, tm.tm_sec, num);
-	#endif
+#if DEBUGSOO > 4
+	os_printf("%02d.%02d.%04d %02d:%02d:%02d(%u)\n", tm.tm_mday, 1+tm.tm_mon, 1900+tm.tm_year, tm.tm_hour, tm.tm_min, tm.tm_sec, Time);
+#endif
+	if(hst->OutType & HST_TotalCnt) {
+		dd = cfg_glo.csv_delimiter_total_dec;
+	} else {
+		dd = cfg_glo.csv_delimiter_dec;
+	}
+	if((hst->OutType & (HST_TotalCnt | HST_ByHour | HST_ByDay)) == 0) num *= 60; // kwt per hour
+	tcp_puts("%c%u%c%03u\r\n", hst->delimiter_csv, num / 1000, dd, num % 1000);
 }
 
 // Output history by 1 min from last record to previous,
+// web_conn->udata_start - flags
 // web_conn->udata_stop - how many minutes out, if minutes = 0 - all records
 // yyyy-mm-dd hh:mm:00,n
 void ICACHE_FLASH_ATTR web_get_history(TCP_SERV_CONN *ts_conn)
 {
 	history_output * hst;
-	int32 len, i;
-	uint8 n;
-	bool packed_flag;
+	union {
+		uint32 u32;
+		uint16 u16[2];
+	} arrcnt;
+	int16_t hh = 0;
 
     WEB_SRV_CONN *web_conn = (WEB_SRV_CONN *)ts_conn->linkd;
 	uint32 wtimer = system_get_time();
@@ -461,163 +525,166 @@ void ICACHE_FLASH_ATTR web_get_history(TCP_SERV_CONN *ts_conn)
 			#endif
 			return;
 		}
-		hst->StringSizeMax = 32;
+		web_conn->web_disc_cb = (web_func_disc_cb)&os_free;
+		web_conn->web_disc_par = (uint32)hst;
 		hst->minutes = web_conn->udata_stop;
 		web_conn->udata_stop = (uint32)hst;
 		hst->OutType = web_conn->udata_start;
-		hst->PtrCurrent = fram_store.PtrCurrent;
-		if(CntCurrent.Cnt2) { // packed available
-			hst->PtrCurrent += CntCurrent.Cnt2 == 1 ? 1 : 2; // 0,1 in CurrentCnt is 0 last minute
-			if(hst->PtrCurrent >= cfg_glo.Fram_Size - StartArrayOfCnts) hst->PtrCurrent -= cfg_glo.Fram_Size - StartArrayOfCnts;
+		web_conn->udata_start = 0;
+		hst->PtrCurrent = fram_store.ByMin.PtrCurrent;
+		hst->delimiter_csv = (hst->OutType & HST_TotalCnt) ? cfg_glo.csv_delimiter_total : cfg_glo.csv_delimiter;
+		hst->LastTime = fram_store.ByMin.LastTime;
+		tcp_puts("time%cvalue\r\n", hst->delimiter_csv); // csv header
+		if(hst->OutType & HST_TotalCnt) { // TotalCnt
+			hst->Sum = fram_store.ByMin.TotalCnt;
 		}
-		hst->LastTime = fram_store.LastTime;
-		if(hst->OutType & HST_MTariffs) {
-			tcp_puts("date,value,T1,T2\r\n"); // csv header
-		} else {
-			tcp_puts("date,value\r\n"); // csv header
+    } else {
+    	hst = (history_output *)web_conn->udata_stop; // restore ptr
+    	if(hst->OutType & HST_ByHour && web_conn->udata_start) {
+    		hh = web_conn->udata_start;
+    		goto xContinueByHour;
+    	}
+    }
+	while(hst->minutes) {
+		if(hst->PtrCurrent == 0) hst->PtrCurrent = ArrayOfCntsSize;
+		hst->PtrCurrent -= ArrayOfCntsElement;
+		if(hst->PtrCurrent == fram_store.ByMin.PtrCurrent) break; // cycled
+		uint32 addr = ArrayOfCntsStart + hst->PtrCurrent;
+   		if(spi_flash_read_max(addr & ~3, (uint32_t *)&arrcnt, 4) != SPI_FLASH_RESULT_OK) {
+   			#if DEBUGSOO > 2
+   				os_printf("Err SPIRead %u\n", addr);
+   			#endif
+			break;
+   		}
+		if(arrcnt.u32 == 0xFFFFFFFF) break; // end of array
+   		uint16 num = arrcnt.u16[(addr & 3) / ArrayOfCntsElement];
+		if((system_get_time() - wtimer > 100000 && web_conn->msgbuflen)
+				|| web_conn->msgbuflen + 72 > web_conn->msgbufsize) { // overflow or timer > 100000us and buffer is not empty
+			#if DEBUGSOO > 4
+				os_printf("Buf full (%u)/wtimer: %u\n", web_conn->msgbuflen, system_get_time());
+			#endif
+			SetNextFunSCB(web_get_history);
+			SetSCB(SCB_RETRYCB);
+			return;
+		}
+		if(hst->OutType & HST_TotalCnt) {
+			hst->Sum -= num; // TotalCnt
 		}
 		if(hst->OutType & HST_ByHour) {
-			if((hst->Hours = (uint32 *) os_zalloc(25 * sizeof(uint32))) == NULL) {
-				#if DEBUGSOO > 2
-					os_printf("Error malloc hours: %u\n", sizeof(history_output));
+			hst->Hours[hst->LastTime % SECSPERDAY / SECSPERHOUR] += num;
+		} else {
+			web_get_history_put_csv_str(web_conn, hst, hst->LastTime, (hst->OutType & HST_TotalCnt) ? hst->Sum : num);
+		}
+		hst->LastTime -= TIME_STEP_SEC;
+		hst->minutes--;
+	}
+	#if DEBUGSOO > 4
+		os_printf("End, mbs=%u,s=%u; %d ", web_conn->msgbuflen, web_conn->msgbufsize, hst->minutes);
+	#endif
+	if(hst->OutType & HST_ByHour) {
+		hst->LastTime = fram_store.ByMin.LastTime / SECSPERDAY * SECSPERDAY + SECSPERDAY - 1;
+		for(hh = 23; hh >= 0; hh--) {
+xContinueByHour:
+			if(web_conn->msgbuflen + 72 > web_conn->msgbufsize) {
+				web_conn->udata_start = hh;
+				#if DEBUGSOO > 4
+					os_printf("Buf full2 (%u)\n", web_conn->msgbuflen);
 				#endif
+				SetNextFunSCB(web_get_history);
+				SetSCB(SCB_RETRYCB);
 				return;
 			}
-			hst->StringSizeMax = 900;
+			web_get_history_put_csv_str(web_conn, hst, hst->LastTime, hst->Hours[hh]);
+			hst->LastTime -= SECSPERHOUR;
 		}
-		if(hst->OutType & HST_TotalCnt) { // TotalCnt
-			hst->Sum = fram_store.TotalCnt;
-			if(hst->OutType & HST_MTariffs) {
-				hst->SumT1 = fram_store.TotalCntT1;
-				hst->StringSizeMax = 64;
-			}
-			if((hst->OutType & HST_ByDay) == 0) { // not By day
-				hst->previous_n = hst->Sum; // save value and wait changing
-			}
-		} else hst->previous_n = 0xFFFFFFFF;
-    } else hst = (history_output *)web_conn->udata_stop; // restore ptr
-    // Get/put as many bytes as possible
-	if(hst->FlagContinue) {
-		len = hst->len;
-		i = hst->i;
-		n = hst->n;
-		packed_flag = hst->packed_flag;
-		if(hst->minutes == 0 || (packed_flag && n == 0)) goto xEnd;
-		goto xContinue;
+		hst->LastTime--;
 	}
-	do {
-		uint16_t num = 0;
-		if(hst->PtrCurrent == 0) hst->PtrCurrent = cfg_glo.Fram_Size - StartArrayOfCnts; // jump to the end
-		len = mMIN(sizeof(hst->buf), hst->PtrCurrent);
-		#if DEBUGSOO > 4
-			os_printf(" st %u -> len: %u (+%u), ", hst->PtrCurrent, len, system_get_time() - wtimer);
-		#endif
-		if(eeprom_read_block(StartArrayOfCnts + hst->PtrCurrent - len, hst->buf, len)) {
-xErrorI2C:
-			#if DEBUGSOO > 2
-				os_printf("fram R error\n");
-			#endif
-			break;
-		} else {
-			if(len == 1) { // may be packed - load previous byte from end
-				hst->buf[1] = hst->buf[0];
-				if(eeprom_read_block(cfg_glo.Fram_Size - 1, hst->buf, 1)) goto xErrorI2C;
-				len = 2;
-			}
-			for(i = len - 1; i > 0; i--) { // first byte may be not proceeded
-				n = hst->buf[i];
-				#if DEBUGSOO > 4
-					os_printf(" %d=%d ", i, n);
-				#endif
-				packed_flag = hst->buf[i-1] == 0; // packed
-				if(packed_flag) {
-					if(n == 0) { // end
-xEnd:
-						if(web_conn->msgbuflen + hst->StringSizeMax > web_conn->msgbufsize) goto xBufferFull; // overflow
-						if(hst->OutType & HST_ByHour) {
-							hst->LastTime = fram_store.LastTime / 86400 * 86400;
-							for(n = 0; n < 24; n++) {
-								web_get_history_put_csv_str(web_conn, hst, hst->LastTime, hst->Hours[n]);
-								hst->LastTime += 3600;
-							}
-							hst->LastTime--;
-						}
-						// if TotalCnt/ByDay - print sum, otherwise 0;
-						web_get_history_put_csv_str(web_conn, hst, hst->LastTime, (hst->OutType & (HST_TotalCnt | HST_ByDay)) ? hst->Sum : 0);
-						goto xEndExit;
-					}
-					if(n == 1) packed_flag = 0; // special case "0,1" - last min = 1, previous min = 0
-					else i--;
-				}
-				do {
-xContinue:
-					if((system_get_time() - wtimer > 100000 && web_conn->msgbuflen)
-							|| web_conn->msgbuflen + hst->StringSizeMax > web_conn->msgbufsize) { // overflow or timer > 100000us and buffer is not empty
-xBufferFull:			hst->len = len;
-						hst->i = i;
-						hst->n = n;
-						hst->packed_flag = packed_flag;
-						hst->FlagContinue = 1;
-						#if DEBUGSOO > 4
-							os_printf("Buf full (%u)/wtimer: %d, %d, %d.\n", web_conn->msgbuflen, len, i, n);
-						#endif
-						SetNextFunSCB(web_get_history);
-						SetSCB(SCB_RETRYCB);
-						return;
-					}
-					num = packed_flag ? 0 : n;
-					uint32_t prn_num;
-					if(hst->OutType & HST_TotalCnt) {
-						hst->Sum -= num; // TotalCnt
-						if(hst->OutType & HST_MTariffs) check_add_CntT1(&hst->LastTime, &hst->SumT1, -num);
-					}
-					if(hst->OutType & HST_ByDay) { // by day
-						if((hst->OutType & HST_TotalCnt) == 0) hst->Sum += num; // Not TotalCnt(+)
-						if(hst->LastTime % 86400 / 60 != 0) { // time is not 00:00 - skip
-							goto xSkip;
-						}
-						prn_num = hst->Sum;
-					} else if(hst->OutType & HST_TotalCnt) { // TotalCnt not by day
-						if(hst->previous_n == hst->Sum) goto xSkip; // Skip the same value
-						prn_num = hst->previous_n;
-					} else {
-						prn_num = num;
-					}
-					if(hst->OutType & HST_ByHour) {
-						hst->Hours[hst->LastTime % 86400 / 3600] += prn_num;
-					} else {
-						web_get_history_put_csv_str(web_conn, hst, hst->LastTime, prn_num);
-					}
-					if((hst->OutType & HST_TotalCnt) == 0) hst->Sum = 0; // not TotalCnt
-					hst->previous_n = (hst->OutType & HST_TotalCnt) ? hst->Sum : num; // TotalCnt = sum
-xSkip:
-					hst->PreviousTime = hst->LastTime;
-					hst->LastTime -= TIME_STEP_SEC;
-					if(hst->minutes) {
-						hst->minutes -= 1;
-						if(hst->minutes == 0) goto xEnd;
-					}
-				} while(packed_flag && --n);
-			}
-			if(i <= 0) { // buffer has been proceeded
-				len -= 1 + i;
-				if(hst->PtrCurrent < len) hst->PtrCurrent += cfg_glo.Fram_Size - StartArrayOfCnts - len;
-				else hst->PtrCurrent -= len;
-				#if DEBUGSOO > 4
-					os_printf("H ptr_curr: %u, t%u\n", hst->PtrCurrent, hst->LastTime);
-				#endif
-			}
-		}
-	} while(1);
-xEndExit:
-	#if DEBUGSOO > 4
-		os_printf("End(mbs=%u) ", web_conn->msgbufsize);
-	#endif
-	if(hst->Hours) os_free(hst->Hours);
-	os_free(hst);
-	web_conn->udata_stop = 0;
+	// if TotalCnt/ByDay - print sum, otherwise 0;
+	web_get_history_put_csv_str(web_conn, hst, hst->LastTime, (hst->OutType & (HST_TotalCnt | HST_ByDay)) ? hst->Sum : 0);
 	ClrSCB(SCB_RETRYCB);
-	//FRAM_Status = 2;
+}
+
+uint32 HistorySums[2];
+#define hst_bydays_flags web_conn->udata_start
+#define hst_bydays_days  web_conn->udata_stop   // current day << 16 + days
+#define hst_bydays_ptr   web_conn->web_disc_par // = start array_ptr
+void ICACHE_FLASH_ATTR web_get_history_bydays_prn(WEB_SRV_CONN *web_conn, uint32 * nums)
+{
+	char df, dd;
+	if(hst_bydays_flags & HST_TotalCnt) {
+		df = cfg_glo.csv_delimiter_total;
+		dd = cfg_glo.csv_delimiter_total_dec;
+	} else {
+		df = cfg_glo.csv_delimiter;
+		dd = cfg_glo.csv_delimiter_dec;
+	}
+	time_t t = (fram_store.LastDay - (hst_bydays_days >> 16) - 1) * SECSPERDAY + (SECSPERDAY-1);
+	struct tm tm;
+	_localtime(&t, &tm);
+	tcp_puts("%02d.%02d.%04d", tm.tm_mday, 1+tm.tm_mon, 1900+tm.tm_year);
+	int8 i;
+	for(i = 0; i < 2; i++) tcp_puts("%c%u%c%03u", df, nums[i] / 1000, dd, nums[i] % 1000);
+	tcp_puts("\r\n");
+}
+
+void ICACHE_FLASH_ATTR web_get_history_bydays(TCP_SERV_CONN *ts_conn)
+{
+	ArrayByDayElement fram_bydays_elem; // T2, T1
+
+    WEB_SRV_CONN *web_conn = (WEB_SRV_CONN *)ts_conn->linkd;
+	#if DEBUGSOO > 2
+		os_printf("History by days %u, %u, %u\n", web_conn->udata_start, web_conn->udata_stop, hst_bydays_ptr);
+	#endif
+	char df;
+	if(hst_bydays_flags & HST_TotalCnt) {
+		df = cfg_glo.csv_delimiter_total;
+	} else {
+		df = cfg_glo.csv_delimiter;
+	}
+    if(CheckSCB(SCB_RETRYCB)==0) {  // Check if this is a first round call
+		tcp_puts("time%cДень%cНочь\r\n", df, df); // csv header
+    	if(hst_bydays_flags & HST_TotalCnt) {
+    		HistorySums[0] = fram_store.LastTotal_T1;
+    		HistorySums[1] = fram_store.LastTotal - fram_store.LastTotal_T1;
+    		web_get_history_bydays_prn(web_conn, HistorySums);
+    		goto xNextDay;
+    	}
+    }
+    while(hst_bydays_days & 0xFFFF) {
+		uint32 nums[2];
+    	if(web_conn->msgbuflen + 40 > web_conn->msgbufsize) { // +max string size
+			SetSCB(SCB_RETRYCB);
+    		SetNextFunSCB(web_get_history_bydays);
+    		return;
+    	}
+		if(hst_bydays_ptr == 0) hst_bydays_ptr = ArrayByDaySize;
+		hst_bydays_ptr -= sizeof(ArrayByDayElement);
+		if(hst_bydays_ptr == fram_store.PtrCurrentByDay) break; // cycled
+   		if(spi_flash_read_max(ArrayByDayStart + hst_bydays_ptr, (uint32_t *)&fram_bydays_elem, sizeof(ArrayByDayElement)) != SPI_FLASH_RESULT_OK) {
+   			#if DEBUGSOO > 2
+   				os_printf("Err SPIRead %u\n", hst_bydays_ptr);
+   			#endif
+			break;
+   		}
+		#if DEBUGSOO > 4
+   			os_printf("read %u: %d, %d\n", hst_bydays_ptr, fram_bydays_elem[0], fram_bydays_elem[1]); //uart_wait_tx_fifo_empty();
+		#endif
+   		if(fram_bydays_elem[0] == ~0 && fram_bydays_elem[1] == ~0) break; // end
+		fram_bydays_elem[0] -= fram_bydays_elem[1];
+		nums[0] = fram_bydays_elem[1];
+		nums[1] = fram_bydays_elem[0];
+		if(hst_bydays_flags & HST_TotalCnt) {
+			HistorySums[0] -= nums[0];
+			HistorySums[1] -= nums[1];
+			web_get_history_bydays_prn(web_conn, HistorySums);
+		} else {
+			web_get_history_bydays_prn(web_conn, nums);
+		}
+xNextDay:
+		hst_bydays_days = ((hst_bydays_days + (1<<16)) & 0xFFFF0000) | ((hst_bydays_days & 0xFFFF) - 1); // prev day, days--
+    }
+    ClrSCB(SCB_RETRYCB);
+//    SetSCB(SCB_FCLOSE | SCB_DISCONNECT);
 }
 
 // Output i2c from eeprom web_conn->udata_start, end: web_conn->udata_stop
@@ -632,7 +699,7 @@ void ICACHE_FLASH_ATTR web_get_i2c_eeprom(TCP_SERV_CONN *ts_conn)
 #endif
     }
     // Get/put as many bytes as possible
-    unsigned int len = mMIN(web_conn->msgbufsize - web_conn->msgbuflen, FRAM_MAX_BLOCK_AT_ONCE);
+    unsigned int len = mMIN(web_conn->msgbufsize - web_conn->msgbuflen, mMIN(FRAM_MAX_BLOCK_AT_ONCE, cfg_glo.Fram_Size));
 #if DEBUGSOO > 2
 	os_printf("%u+%u ",web_conn->udata_start, len);
 #endif
@@ -780,6 +847,13 @@ void ICACHE_FLASH_ATTR get_new_url(TCP_SERV_CONN *ts_conn)
 	if(syscfg.web_port != 80) tcp_puts(":%u", syscfg.web_port);
 }
 
+void ICACHE_FLASH_ATTR web_int_callback_print_hexarray(WEB_SRV_CONN *web_conn, uint8 *arr, uint8 size)
+{
+	while(size--) {
+		tcp_puts("%02X ", *arr++);
+	}
+}
+
 /******************************************************************************
  * FunctionName : web_callback
  * Description  : callback, DO NOT send thru tcp_puts more than SCB_SEND_SIZE (128 bytes)!
@@ -790,709 +864,790 @@ void ICACHE_FLASH_ATTR web_int_callback(TCP_SERV_CONN *ts_conn, uint8 *cstr)
 {
     WEB_SRV_CONN *web_conn = (WEB_SRV_CONN *)ts_conn->linkd;
 //        uint8 *cstr = &web_conn->msgbuf[web_conn->msgbuflen];
-        {
-           uint8 *vstr = os_strchr(cstr, '=');
-           if(vstr != NULL) {
-        	   *vstr++ = '\0';
-        	   web_int_vars(ts_conn, cstr, vstr);
-        	   return;
-           }
-        }
+	{
+	   uint8 *vstr = os_strchr(cstr, '=');
+	   if(vstr != NULL) {
+		   *vstr++ = '\0';
+		   web_int_vars(ts_conn, cstr, vstr);
+		   return;
+	   }
+	}
 #if DEBUGSOO > 5
-        os_printf("[%s]\n", cstr);
+	os_printf("[%s]\n", cstr);
 #endif
-        ifcmp("start") tcp_puts("0x%08x", web_conn->udata_start);
-        else ifcmp("stop") tcp_puts("0x%08x", web_conn->udata_stop);
-        else ifcmp("xml_") {
-            cstr+=4;
-            web_conn->udata_start&=~3;
-            ifcmp("ram") tcp_puts("0x%08x", *((uint32*)web_conn->udata_start));
+	ifcmp("start") tcp_puts("0x%08x", web_conn->udata_start);
+	else ifcmp("stop") tcp_puts("0x%08x", web_conn->udata_stop);
+	else ifcmp("xml_") {
+		cstr+=4;
+		web_conn->udata_start&=~3;
+		ifcmp("ram") tcp_puts("0x%08x", *((uint32*)web_conn->udata_start));
 #ifdef USE_MODBUS
-            else ifcmp("mdb") {
-            	web_conn->udata_start &= 0xffff;
-      			web_conn->udata_stop &= 0xffff;
-      			if(web_conn->udata_stop <= web_conn->udata_start) web_conn->udata_stop = web_conn->udata_start + 10;
-      			if(cstr[3] == 'h')	{
-      				ts_conn->flag.user_option1 = 0;
-      				ts_conn->flag.user_option2 = 1;
-      			}
-      			else if(cstr[3] == 'x')	{
-      				ts_conn->flag.user_option1 = 1;
-      				ts_conn->flag.user_option2 = 1;
-      			}
-      			else if(cstr[3] == 's')	{
-      				ts_conn->flag.user_option1 = 1;
-      				ts_conn->flag.user_option2 = 0;
-      			}
-      			else {
-      				ts_conn->flag.user_option1 = 0;
-      				ts_conn->flag.user_option2 = 0;
-      			}
-      			web_modbus_xml(ts_conn);
-            }
+		else ifcmp("mdb") {
+			web_conn->udata_start &= 0xffff;
+			web_conn->udata_stop &= 0xffff;
+			if(web_conn->udata_stop <= web_conn->udata_start) web_conn->udata_stop = web_conn->udata_start + 10;
+			if(cstr[3] == 'h')	{
+				ts_conn->flag.user_option1 = 0;
+				ts_conn->flag.user_option2 = 1;
+			}
+			else if(cstr[3] == 'x')	{
+				ts_conn->flag.user_option1 = 1;
+				ts_conn->flag.user_option2 = 1;
+			}
+			else if(cstr[3] == 's')	{
+				ts_conn->flag.user_option1 = 1;
+				ts_conn->flag.user_option2 = 0;
+			}
+			else {
+				ts_conn->flag.user_option1 = 0;
+				ts_conn->flag.user_option2 = 0;
+			}
+			web_modbus_xml(ts_conn);
+		}
 #endif
-            else tcp_put('?');
-            web_conn->udata_start += 4;
-        }
+		else tcp_put('?');
+		web_conn->udata_start += 4;
+	}
 #ifdef USE_MODBUS
-        else ifcmp("mdb") {
-        	if(cstr[3]=='_') {
-            	cstr+=4;
-            	struct tcp_pcb *pcb = NULL;
-            	if(mdb_tcp_conn != NULL) pcb = mdb_tcp_conn->pcb;
-            	ifcmp("remote") {
-       				if(pcb != NULL) {
-       					tcp_puts(IPSTR ":%d", IP2STR(&(pcb->remote_ip.addr)), pcb->remote_port);
-       				}
-            		else tcp_strcpy_fd("none");
-            	}
+	else ifcmp("mdb") {
+		if(cstr[3]=='_') {
+			cstr+=4;
+			struct tcp_pcb *pcb = NULL;
+			if(mdb_tcp_conn != NULL) pcb = mdb_tcp_conn->pcb;
+			ifcmp("remote") {
+				if(pcb != NULL) {
+					tcp_puts(IPSTR ":%d", IP2STR(&(pcb->remote_ip.addr)), pcb->remote_port);
+				}
+				else tcp_strcpy_fd("none");
+			}
 #ifndef USE_TCP2UART
-            	else ifcmp("host") {
-        			if(pcb != NULL) {
-            			tcp_puts(IPSTR ":%d", IP2STR(&(pcb->local_ip.addr)), pcb->local_port);
-            		}
-            		else tcp_strcpy_fd("closed");
-            	}
+			else ifcmp("host") {
+				if(pcb != NULL) {
+					tcp_puts(IPSTR ":%d", IP2STR(&(pcb->local_ip.addr)), pcb->local_port);
+				}
+				else tcp_strcpy_fd("closed");
+			}
 #endif
 #ifdef USE_RS485DRV
-            	else ifcmp("trn") {
-            		if(cstr[3]=='s') tcp_puts("%u", MDB_TRN_MAX);
-            		else if(cstr[3]=='a') tcp_puts("%u", MDB_BUF_MAX);
-                	else tcp_put('?');
-            	}
-#endif
-            	else tcp_put('?');
-        	}
-        	else if(cstr[3]=='a') {
-            	cstr+=4;
-        		if((*cstr>='0')&&(*cstr<='9')) {
-        			uint32 addr = ahextoul(cstr);
-        			if(addr < 0x10000) {
-        				uint32 val = 0;
-        				uint32 i = 16;
-        				while(i--) {
-        					if(RdMdbData((uint8 *)&val, addr++, 1) != 0) break;
-        					if(val&0xFF) tcp_put(val);
-        					else break;
-        					if(val>>8) tcp_put(val>>8);
-        					else break;
-        				}
-        			}
-        		}
-        		else tcp_put('?');
-        	}
-        	else if(cstr[3]=='u' || cstr[3]=='s' || cstr[3]=='h' || cstr[3]=='x') {
-        		cstr+=5;
-        		if((*cstr>='0')&&(*cstr<='9')) {
-        			uint32 addr = ahextoul(cstr);
-        			if(addr < 0x10000) {
-        				uint32 val = 0;
-        				if(cstr[-1]=='w') {
-        					if(RdMdbData((uint8 *)&val, addr, 1) != 0) tcp_put('?');
-        					else if (cstr[-2]=='u') tcp_puts("%u", val);
-        					else if (cstr[-2]=='s') tcp_puts("%d", (val&0x8000)? val | 0xFFFF0000 : val);
-        					else if (cstr[-2]=='h') tcp_puts("%04x", val);
-        					else if (cstr[-2]=='x') tcp_puts("0x%04x", val);
-        				}
-        				else if(cstr[-1]=='d') {
-        					if(RdMdbData((uint8 *)&val, addr, 2) != 0) tcp_put('?');
-        					else if (cstr[-2]=='u') tcp_puts("%u", val);
-        					else if (cstr[-2]=='s') tcp_puts("%d", val);
-        					else if (cstr[-2]=='h') tcp_puts("%08x", val);
-        					else if (cstr[-2]=='x') tcp_puts("0x%08x", val);
-        				}
-        				else tcp_put('?');
-        			}
-        			else tcp_put('?');
-    			}
-    			else tcp_put('?');
-        	};
-        }
-#endif
-        else ifcmp("sys_") {
-          cstr+=4;
-          ifcmp("cid") tcp_puts("%08x", system_get_chip_id());
-          else ifcmp("fid") tcp_puts("%08x", spi_flash_get_id());
-          else ifcmp("fsize") tcp_puts("%u", spi_flash_real_size()); // flashchip->chip_size
-          else ifcmp("sdkver") tcp_puts(system_get_sdk_version());
-          else ifcmp("sysver") tcp_strcpy_fd(SYS_VERSION);
-          else ifcmp("webver") tcp_strcpy_fd(WEB_SVERSION);
-          else ifcmp("heap") tcp_puts("%u", system_get_free_heap_size());
-          else ifcmp("adc") {
-        	  uint16 x[4];
-        	  read_adcs(x, 4, 0x00808);
-        	  tcp_puts("%u", x[0]+x[1]+x[2]+x[3]); // 16 бит ADC :)
-          }
-          else ifcmp("time") tcp_puts("%u", system_get_time());
-          else ifcmp("rtctime") tcp_puts("%u", system_get_rtc_time());
-          else ifcmp("mactime") {
-        	  union {
-        	  		uint32 dw[2];
-        	  		uint64 dd;
-        	  	}ux;
-        	  ux.dd = get_mac_time();
-        	  tcp_puts("0x%08x%08x", ux.dw[1], ux.dw[0]);
-          }
-          else ifcmp("vdd33") tcp_puts("%u", readvdd33()); // system_get_vdd33() phy_get_vdd33();
-          else ifcmp("vdd") tcp_puts("%u", system_get_vdd33()); //  phy_get_vdd33();
-          else ifcmp("wdt") tcp_puts("%u", ets_wdt_get_mode());
-          else ifcmp("res_event") tcp_puts("%u", rtc_get_reset_reason()); // 1 - power/ch_pd, 2 - reset, 3 - software, 4 - wdt ...
-          else ifcmp("rst") tcp_puts("%u", system_get_rst_info()->reason);
-          else ifcmp("clkcpu") tcp_puts("%u", ets_get_cpu_frequency());
-          else ifcmp("clkspi") {
-        	  uint32 r = READ_PERI_REG(SPI_CLOCK(0));
-        	  tcp_puts("%u", ets_get_cpu_frequency()/(((r>>SPI_CLKDIV_PRE_S)&SPI_CLKDIV_PRE)+1)/(((r>>SPI_CLKCNT_N_S)&SPI_CLKCNT_N)+1));
-          }
-          else ifcmp("sleep_old") tcp_puts("%u", deep_sleep_option); // если нет отдельного питания RTC и deep_sleep не устанавливался/применялся при текущем включения питания чипа, то значение неопределенно (там хлам).
-//          else ifcmp("test") { };
-          else ifcmp("reset") web_conn->web_disc_cb = (web_func_disc_cb)_ResetVector;
-          else ifcmp("restart") web_conn->web_disc_cb = (web_func_disc_cb)system_restart;
-          else ifcmp("ram") tcp_puts("0x%08x", *((uint32 *)(ahextoul(cstr+3)&(~3))));
-          else ifcmp("rdec") tcp_puts("%d", *((uint32 *)(ahextoul(cstr+4)&(~3))));
-//          else ifcmp("reg") tcp_puts("0x%08x", IOREG(ahextoul(cstr+3)));
-          else ifcmp("ip") {
-/*        	  uint32 cur_ip = 0;
-        	  if(netif_default != NULL) cur_ip = netif_default->ip_addr.addr; */
-        	  uint32 cur_ip = ts_conn->pcb->local_ip.addr;
-//        	  if(cur_ip == 0) cur_ip = 0x0104A8C0;
-			  tcp_puts(IPSTR, IP2STR(&cur_ip));
-          }
-          else ifcmp("url") get_new_url(ts_conn);
-          else ifcmp("debug") tcp_puts("%u", system_get_os_print()&1); // system_set_os_print
-          else ifcmp("const_") {
-        	  cstr += 6;
-        	  ifcmp("faddr") {
-        		  tcp_puts("0x%08x", faddr_esp_init_data_default);
-        	  }
-        	  else tcp_puts("%u", read_sys_const(ahextoul(cstr)));
-          }
-          else ifcmp("ucnst_") tcp_puts("%u", read_user_const(ahextoul(cstr+6)));
-#ifdef USE_NETBIOS
-          else ifcmp("netbios") {
-       		  if(syscfg.cfg.b.netbios_ena) tcp_strcpy(netbios_name);
-          }
-#endif
-          else tcp_put('?');
-        }
-        else ifcmp("cfg_") {
-			cstr += 4;
-			ifcmp("web_") {
-				cstr += 4;
-				ifcmp("port") tcp_puts("%u", syscfg.web_port);
-	        	else ifcmp("twrec") tcp_puts("%u", syscfg.web_twrec);
-	        	else ifcmp("twcls") tcp_puts("%u", syscfg.web_twcls);
-				else ifcmp("twd") tcp_put((syscfg.cfg.b.web_time_wait_delete)? '1' : '0');
+			else ifcmp("trn") {
+				if(cstr[3]=='s') tcp_puts("%u", MDB_TRN_MAX);
+				else if(cstr[3]=='a') tcp_puts("%u", MDB_BUF_MAX);
 				else tcp_put('?');
 			}
-		    else ifcmp("tcp_") {
-		    	cstr+=4;
-		    	ifcmp("tcrec") tcp_puts("%u", syscfg.tcp_client_twait);
-#ifdef USE_TCP2UART
-	        	else ifcmp("port") tcp_puts("%u", syscfg.tcp2uart_port);
-	        	else ifcmp("twrec") tcp_puts("%u", syscfg.tcp2uart_twrec);
-	        	else ifcmp("twcls") tcp_puts("%u", syscfg.tcp2uart_twcls);
-	        	else ifcmp("url") {
-	        		if(tcp_client_url == NULL) tcp_puts("none");
-	        		else tcp_puts("%s", tcp_client_url);
-	        	}
-	        	else ifcmp("reop") tcp_put((syscfg.cfg.b.tcp2uart_reopen)? '1' : '0');
 #endif
-		    	else tcp_put('?');
-		    }
-		    else ifcmp("meter_") { // cfg_
-	        	cstr += 6;
-		        ifcmp("PulsesPerKWt") tcp_puts("%u00", cfg_glo.PulsesPer0_01KWt);
-		        else ifcmp("Fram_Size") tcp_puts("%u", cfg_glo.Fram_Size);
-		        else ifcmp("csv_delim") tcp_puts("%c", cfg_glo.csv_delimiter);
-		        else ifcmp("FramFr") tcp_puts("%u", cfg_glo.fram_freq);
-		        else ifcmp("Debouncing") tcp_puts("%u", cfg_glo.Debouncing_Timeout);
-		        else ifcmp("revsens") tcp_puts("%u", cfg_glo.ReverseSensorPulse);
-		        else ifcmp("TAdj") tcp_puts("%d", cfg_glo.TimeAdjust);
-		        else ifcmp("T1St") tcp_puts("%04u", cfg_glo.TimeT1Start);
-		        else ifcmp("T1En") tcp_puts("%04u", cfg_glo.TimeT1End);
-		    }
-	        else ifcmp("iot_") {	// cfg_
-	        	cstr += 4;
-	        	ifcmp("cloud_enable") tcp_puts("%d", cfg_glo.iot_cloud_enable);
-	            else ifcmp("ini") {
-	        		web_conn->udata_start = 0; // pos in the file
-	        		web_conn->udata_stop = WEBFSOpen(iot_cloud_ini); // file handle
-	            	web_callback_textfile(ts_conn);
-	            }
-	        }
-#ifdef USE_MODBUS
-		    else ifcmp("mdb_") {
-		    	cstr+=4;
-		    	ifcmp("port") tcp_puts("%u", syscfg.mdb_port);
-		    	else ifcmp("twrec") tcp_puts("%u", syscfg.mdb_twrec);
-		    	else ifcmp("twcls") tcp_puts("%u", syscfg.mdb_twcls);
-	        	else ifcmp("url") {
-	        		if(tcp_client_url == NULL) tcp_puts("none");
-	        		else tcp_puts("%s", tcp_client_url);
-	        	}
-	        	else ifcmp("reop") tcp_put((syscfg.cfg.b.mdb_reopen)? '1' : '0');
-	        	else ifcmp("id") tcp_puts("%u", syscfg.mdb_id);
-		    	else tcp_put('?');
-		    }
+			else tcp_put('?');
+		}
+		else if(cstr[3]=='a') {
+			cstr+=4;
+			if((*cstr>='0')&&(*cstr<='9')) {
+				uint32 addr = ahextoul(cstr);
+				if(addr < 0x10000) {
+					uint32 val = 0;
+					uint32 i = 16;
+					while(i--) {
+						if(RdMdbData((uint8 *)&val, addr++, 1) != 0) break;
+						if(val&0xFF) tcp_put(val);
+						else break;
+						if(val>>8) tcp_put(val>>8);
+						else break;
+					}
+				}
+			}
+			else tcp_put('?');
+		}
+		else if(cstr[3]=='u' || cstr[3]=='s' || cstr[3]=='h' || cstr[3]=='x') {
+			cstr+=5;
+			if((*cstr>='0')&&(*cstr<='9')) {
+				uint32 addr = ahextoul(cstr);
+				if(addr < 0x10000) {
+					uint32 val = 0;
+					if(cstr[-1]=='w') {
+						if(RdMdbData((uint8 *)&val, addr, 1) != 0) tcp_put('?');
+						else if (cstr[-2]=='u') tcp_puts("%u", val);
+						else if (cstr[-2]=='s') tcp_puts("%d", (val&0x8000)? val | 0xFFFF0000 : val);
+						else if (cstr[-2]=='h') tcp_puts("%04x", val);
+						else if (cstr[-2]=='x') tcp_puts("0x%04x", val);
+					}
+					else if(cstr[-1]=='d') {
+						if(RdMdbData((uint8 *)&val, addr, 2) != 0) tcp_put('?');
+						else if (cstr[-2]=='u') tcp_puts("%u", val);
+						else if (cstr[-2]=='s') tcp_puts("%d", val);
+						else if (cstr[-2]=='h') tcp_puts("%08x", val);
+						else if (cstr[-2]=='x') tcp_puts("0x%08x", val);
+					}
+					else tcp_put('?');
+				}
+				else tcp_put('?');
+			}
+			else tcp_put('?');
+		};
+	}
 #endif
-			else ifcmp("overclk") tcp_put((syscfg.cfg.b.hi_speed_enable)? '1' : '0');
-			else ifcmp("pinclr") tcp_put((syscfg.cfg.b.pin_clear_cfg_enable)? '1' : '0');
-			else ifcmp("debug") tcp_put((syscfg.cfg.b.debug_print_enable)? '1' : '0');
+	else ifcmp("sys_") {
+	  cstr+=4;
+	  ifcmp("cid") tcp_puts("%08x", system_get_chip_id());
+	  else ifcmp("fid") tcp_puts("%08x", spi_flash_get_id());
+	  else ifcmp("fsize") tcp_puts("%u", spi_flash_real_size()); // flashchip->chip_size
+	  else ifcmp("sdkver") tcp_puts(system_get_sdk_version());
+	  else ifcmp("sysver") tcp_strcpy_fd(SYS_VERSION);
+	  else ifcmp("webver") tcp_strcpy_fd(WEB_SVERSION);
+	  else ifcmp("heap") tcp_puts("%u", system_get_free_heap_size());
+	  else ifcmp("adc") {
+		  uint16 x[4];
+		  read_adcs(x, 4, 0x00808);
+		  tcp_puts("%u", x[0]+x[1]+x[2]+x[3]); // 16 бит ADC :)
+	  }
+	  else ifcmp("time") tcp_puts("%u", system_get_time());
+	  else ifcmp("rtctime") tcp_puts("%u", system_get_rtc_time());
+	  else ifcmp("mactime") {
+		  union {
+				uint32 dw[2];
+				uint64 dd;
+			}ux;
+		  ux.dd = get_mac_time();
+		  tcp_puts("0x%08x%08x", ux.dw[1], ux.dw[0]);
+	  }
+	  else ifcmp("vdd33") tcp_puts("%u", readvdd33()); // system_get_vdd33() phy_get_vdd33();
+	  else ifcmp("vdd") tcp_puts("%u", system_get_vdd33()); //  phy_get_vdd33();
+	  else ifcmp("wdt") tcp_puts("%u", ets_wdt_get_mode());
+	  else ifcmp("res_event") tcp_puts("%u", rtc_get_reset_reason()); // 1 - power/ch_pd, 2 - reset, 3 - software, 4 - wdt ...
+	  else ifcmp("rst") tcp_puts("%u", system_get_rst_info()->reason);
+	  else ifcmp("clkcpu") tcp_puts("%u", ets_get_cpu_frequency());
+	  else ifcmp("clkspi") {
+		  uint32 r = READ_PERI_REG(SPI_CLOCK(0));
+		  tcp_puts("%u", ets_get_cpu_frequency()/(((r>>SPI_CLKDIV_PRE_S)&SPI_CLKDIV_PRE)+1)/(((r>>SPI_CLKCNT_N_S)&SPI_CLKCNT_N)+1));
+	  }
+	  else ifcmp("sleep_old") tcp_puts("%u", deep_sleep_option); // если нет отдельного питания RTC и deep_sleep не устанавливался/применялся при текущем включения питания чипа, то значение неопределенно (там хлам).
+//          else ifcmp("test") { };
+	  else ifcmp("reset") web_conn->web_disc_cb = (web_func_disc_cb)_ResetVector;
+	  else ifcmp("restart") web_conn->web_disc_cb = (web_func_disc_cb)system_restart;
+	  else ifcmp("ram") tcp_puts("0x%08x", *((uint32 *)(ahextoul(cstr+3)&(~3))));
+	  else ifcmp("rdec") tcp_puts("%d", *((uint32 *)(ahextoul(cstr+4)&(~3))));
+//          else ifcmp("reg") tcp_puts("0x%08x", IOREG(ahextoul(cstr+3)));
+	  else ifcmp("ip") {
+/*        	  uint32 cur_ip = 0;
+		  if(netif_default != NULL) cur_ip = netif_default->ip_addr.addr; */
+		  uint32 cur_ip = ts_conn->pcb->local_ip.addr;
+//        	  if(cur_ip == 0) cur_ip = 0x0104A8C0;
+		  tcp_puts(IPSTR, IP2STR(&cur_ip));
+	  }
+	  else ifcmp("url") get_new_url(ts_conn);
+	  else ifcmp("debug") tcp_puts("%u", system_get_os_print()&1); // system_set_os_print
+	  else ifcmp("const_") {
+		  cstr += 6;
+		  ifcmp("faddr") {
+			  tcp_puts("0x%08x", faddr_esp_init_data_default);
+		  }
+		  else tcp_puts("%u", read_sys_const(ahextoul(cstr)));
+	  }
+	  else ifcmp("ucnst_") tcp_puts("%u", read_user_const(ahextoul(cstr+6)));
 #ifdef USE_NETBIOS
-			else ifcmp("netbios") tcp_put((syscfg.cfg.b.netbios_ena)? '1' : '0');
+	  else ifcmp("netbios") {
+		  if(syscfg.cfg.b.netbios_ena) tcp_strcpy(netbios_name);
+	  }
+#endif
+	  else tcp_put('?');
+	}
+	else ifcmp("cfg_") {
+		cstr += 4;
+		ifcmp("web_") {
+			cstr += 4;
+			ifcmp("port") tcp_puts("%u", syscfg.web_port);
+			else ifcmp("twrec") tcp_puts("%u", syscfg.web_twrec);
+			else ifcmp("twcls") tcp_puts("%u", syscfg.web_twcls);
+			else ifcmp("twd") tcp_put((syscfg.cfg.b.web_time_wait_delete)? '1' : '0');
+			else tcp_put('?');
+		}
+		else ifcmp("tcp_") {
+			cstr+=4;
+			ifcmp("tcrec") tcp_puts("%u", syscfg.tcp_client_twait);
+#ifdef USE_TCP2UART
+			else ifcmp("port") tcp_puts("%u", syscfg.tcp2uart_port);
+			else ifcmp("twrec") tcp_puts("%u", syscfg.tcp2uart_twrec);
+			else ifcmp("twcls") tcp_puts("%u", syscfg.tcp2uart_twcls);
+			else ifcmp("url") {
+				if(tcp_client_url == NULL) tcp_puts("none");
+				else tcp_puts("%s", tcp_client_url);
+			}
+			else ifcmp("reop") tcp_put((syscfg.cfg.b.tcp2uart_reopen)? '1' : '0');
+#endif
+			else tcp_put('?');
+		}
+		else ifcmp("glo_") { // cfg_
+			cstr += 4;
+			ifcmp("csv_delim_td") tcp_puts("%c", cfg_glo.csv_delimiter_total_dec);
+			else ifcmp("csv_delim_t") tcp_puts("%c", cfg_glo.csv_delimiter_total);
+			else ifcmp("csv_delimd") tcp_puts("%c", cfg_glo.csv_delimiter_dec);
+			else ifcmp("csv_delim") tcp_puts("%c", cfg_glo.csv_delimiter);
+			else ifcmp("PulsesPerKWt") tcp_puts("1000");
+			else ifcmp("Fram_Size") tcp_puts("%u", cfg_glo.Fram_Size);
+			else ifcmp("FramFr") tcp_puts("%u", cfg_glo.fram_freq);
+			else ifcmp("TAdj") tcp_puts("%d", cfg_glo.TimeAdjust);
+			else ifcmp("T1St") tcp_puts("%04u", cfg_glo.TimeT1Start);
+			else ifcmp("T1En") tcp_puts("%04u", cfg_glo.TimeT1End);
+			else ifcmp("time_maxmism") tcp_puts("%u", cfg_glo.TimeMaxMismatch);
+			else ifcmp("refresh_t") tcp_puts("%u", cfg_glo.page_refresh_time);
+			else ifcmp("req_period") tcp_puts("%u", cfg_glo.request_period);
+			else ifcmp("pwmt_rtout") tcp_puts("%u", cfg_glo.pwmt_read_timeout);
+			else ifcmp("pwmt_tout") tcp_puts("%u", cfg_glo.pwmt_response_timeout);
+			else ifcmp("pwmt_derr") tcp_puts("%u", cfg_glo.pwmt_delay_after_err);
+			else ifcmp("pass") {
+				uint8 i = atoi(cstr + 4) - 1;
+				if(i <= 1) web_int_callback_print_hexarray(web_conn, cfg_glo.Pass[i], sizeof(cfg_glo.Pass[0]));
+			}
+		}
+		else ifcmp("iot_") {	// cfg_
+			cstr += 4;
+			ifcmp("cloud_enable") tcp_puts("%d", cfg_glo.iot_cloud_enable);
+			else ifcmp("ini") {
+				web_conn->udata_start = 0; // pos in the file
+				web_conn->udata_stop = WEBFSOpen(iot_cloud_ini); // file handle
+				web_callback_textfile(ts_conn);
+			}
+		}
+#ifdef USE_MODBUS
+		else ifcmp("mdb_") {
+			cstr+=4;
+			ifcmp("port") tcp_puts("%u", syscfg.mdb_port);
+			else ifcmp("twrec") tcp_puts("%u", syscfg.mdb_twrec);
+			else ifcmp("twcls") tcp_puts("%u", syscfg.mdb_twcls);
+			else ifcmp("url") {
+				if(tcp_client_url == NULL) tcp_puts("none");
+				else tcp_puts("%s", tcp_client_url);
+			}
+			else ifcmp("reop") tcp_put((syscfg.cfg.b.mdb_reopen)? '1' : '0');
+			else ifcmp("id") tcp_puts("%u", syscfg.mdb_id);
+			else tcp_put('?');
+		}
+#endif
+		else ifcmp("overclk") tcp_put((syscfg.cfg.b.hi_speed_enable)? '1' : '0');
+		else ifcmp("pinclr") tcp_put((syscfg.cfg.b.pin_clear_cfg_enable)? '1' : '0');
+		else ifcmp("debug") tcp_put((syscfg.cfg.b.debug_print_enable)? '1' : '0');
+#ifdef USE_NETBIOS
+		else ifcmp("netbios") tcp_put((syscfg.cfg.b.netbios_ena)? '1' : '0');
 #endif
 #ifdef USE_SNTP
-			else ifcmp("sntp") tcp_put((syscfg.cfg.b.sntp_ena)? '1' : '0');
+		else ifcmp("sntp") tcp_put((syscfg.cfg.b.sntp_ena)? '1' : '0');
 #endif
 #ifdef USE_CAPTDNS
-			else ifcmp("cdns") tcp_put((syscfg.cfg.b.cdns_ena)? '1' : '0');
+		else ifcmp("cdns") tcp_put((syscfg.cfg.b.cdns_ena)? '1' : '0');
 #endif
-		    else tcp_put('?');
-		}
-        else ifcmp("wifi_") {
-          cstr+=5;
-          ifcmp("rdcfg") Read_WiFi_config(&wificonfig, WIFI_MASK_ALL);
-          else ifcmp("newcfg") {
+		else tcp_put('?');
+	}
+	else ifcmp("wifi_") {
+	  cstr+=5;
+	  ifcmp("rdcfg") Read_WiFi_config(&wificonfig, WIFI_MASK_ALL);
+	  else ifcmp("newcfg") {
 /*        	  if(CheckSCB(SCB_WEBSOC)) {
-        		  tcp_puts("%d",New_WiFi_config(WIFI_MASK_ALL));
-        	  }
-        	  else { */
-        		  web_conn->web_disc_cb = (web_func_disc_cb)New_WiFi_config;
-        		  web_conn->web_disc_par = WIFI_MASK_ALL;
+			  tcp_puts("%d",New_WiFi_config(WIFI_MASK_ALL));
+		  }
+		  else { */
+			  web_conn->web_disc_cb = (web_func_disc_cb)New_WiFi_config;
+			  web_conn->web_disc_par = WIFI_MASK_ALL;
 //        	  }
-          }
+	  }
 //          else ifcmp("csta") tcp_puts("%d", wifi_station_get_connect_status());
-          else ifcmp("mode") tcp_puts("%d", wifi_get_opmode());
-          else ifcmp("phy") tcp_puts("%d", wifi_get_phy_mode());
+	  else ifcmp("mode") tcp_puts("%d", wifi_get_opmode());
+	  else ifcmp("phy") tcp_puts("%d", wifi_get_phy_mode());
 //          else ifcmp("chl") tcp_puts("%d", wifi_get_channel());
-          else ifcmp("sleep") tcp_puts("%d", wifi_get_sleep_type());
-          else ifcmp("scan") web_wscan_xml(ts_conn);
-          else ifcmp("prrq_xml") web_ProbeRequest_xml(ts_conn);
+	  else ifcmp("sleep") tcp_puts("%d", wifi_get_sleep_type());
+	  else ifcmp("scan") web_wscan_xml(ts_conn);
+	  else ifcmp("prrq_xml") web_ProbeRequest_xml(ts_conn);
 //          else ifcmp("aucn") tcp_puts("%d", wifi_station_get_auto_connect());
 //          else ifcmp("power") { rom_en_pwdet(1); tcp_puts("%d", rom_get_power_db()); }
 //          else ifcmp("noise") tcp_puts("%d", get_noisefloor_sat()); // noise_init(), rom_get_noisefloor(), ram_get_noisefloor(), ram_set_noise_floor(),noise_check_loop(), read_hw_noisefloor(), ram_start_noisefloor()
 //          else ifcmp("hwnoise") tcp_puts("%d", read_hw_noisefloor());
 /*          else ifcmp("fmsar") { // Test!
-        	  rom_en_pwdet(1); // ?
-        	  tcp_puts("%d", ram_get_fm_sar_dout(ahextoul(cstr+5)));
-          } */
-          else ifcmp("rfopt") tcp_puts("%u",(RTC_RAM_BASE[24]>>16)&7); // system_phy_set_rfoption | phy_afterwake_set_rfoption(option); 0..4
-          else ifcmp("vddpw") tcp_puts("%u", phy_in_vdd33_offset); // system_phy_set_tpw_via_vdd33(val); // = pphy_vdd33_set_tpw(vdd_x_1000); Adjust RF TX Power according to VDD33, unit: 1/1024V, range [1900, 3300]
-          else ifcmp("maxpw") tcp_puts("%u", phy_in_most_power); // read_sys_const(34));// system_phy_set_max_tpw(val); // = phy_set_most_tpw(pow_db); unit: 0.25dBm, range [0, 82], 34th byte esp_init_data_default.bin
-          else ifcmp("aps_") {
-        	  cstr+=4;
-        	  ifcmp("xml") wifi_aps_xml(ts_conn);
-              else ifcmp("id") tcp_puts("%d", wifi_station_get_current_ap_id());
-              else tcp_put('?');
+		  rom_en_pwdet(1); // ?
+		  tcp_puts("%d", ram_get_fm_sar_dout(ahextoul(cstr+5)));
+	  } */
+	  else ifcmp("rfopt") tcp_puts("%u",(RTC_RAM_BASE[24]>>16)&7); // system_phy_set_rfoption | phy_afterwake_set_rfoption(option); 0..4
+	  else ifcmp("vddpw") tcp_puts("%u", phy_in_vdd33_offset); // system_phy_set_tpw_via_vdd33(val); // = pphy_vdd33_set_tpw(vdd_x_1000); Adjust RF TX Power according to VDD33, unit: 1/1024V, range [1900, 3300]
+	  else ifcmp("maxpw") tcp_puts("%u", phy_in_most_power); // read_sys_const(34));// system_phy_set_max_tpw(val); // = phy_set_most_tpw(pow_db); unit: 0.25dBm, range [0, 82], 34th byte esp_init_data_default.bin
+	  else ifcmp("aps_") {
+		  cstr+=4;
+		  ifcmp("xml") wifi_aps_xml(ts_conn);
+		  else ifcmp("id") tcp_puts("%d", wifi_station_get_current_ap_id());
+		  else tcp_put('?');
 /*
-        	  struct station_config config[5];
-        	  int x = wifi_station_get_ap_info(config);
-              if(cstr[1] != '_' || cstr[0]<'0' || cstr[0]>'4' ) {
-            	  ifcmp("cnt") tcp_puts("%d", x);
-            	  else tcp_put('?');
-              }
-              int i = cstr[0]-'0';
-       	      if(i < x) {
-       	    	  ifcmp("ssid") tcp_htmlstrcpy(config[i].ssid, sizeof(config[0].ssid));
-       	    	  else ifcmp("psw") tcp_htmlstrcpy(config[i].password, sizeof(config[0].password));
-       	    	  else ifcmp("sbss") tcp_puts("%d", config[i].bssid_set);
-       	      	  else ifcmp("bssid") tcp_puts(MACSTR, MAC2STR(config[i].bssid));
-              	  else tcp_put('?');
-       	      }
-        	  else ifcmp("id") wifi_aps_xml(ts_conn); */
-          }
-          else {
-            uint8 if_index;
-            ifcmp("ap_") if_index = SOFTAP_IF;
-            else ifcmp("st_") if_index = STATION_IF;
-            else { tcp_put('?'); return; };
-            cstr+=3;
-			struct ip_info wifi_info;
-            if(if_index == SOFTAP_IF) {
-            	// SOFTAP_MODE
-            	ifcmp("dhcp") tcp_puts("%d", (dhcps_flag==0)? 0 : 1);
-				else ifcmp("mac") {
-					uint8 macaddr[6];
-					wifi_get_macaddr(if_index, macaddr);
-					tcp_puts(MACSTR, MAC2STR(macaddr));
-				}
-				else {
-					uint8 opmode = wifi_get_opmode();
+		  struct station_config config[5];
+		  int x = wifi_station_get_ap_info(config);
+		  if(cstr[1] != '_' || cstr[0]<'0' || cstr[0]>'4' ) {
+			  ifcmp("cnt") tcp_puts("%d", x);
+			  else tcp_put('?');
+		  }
+		  int i = cstr[0]-'0';
+		  if(i < x) {
+			  ifcmp("ssid") tcp_htmlstrcpy(config[i].ssid, sizeof(config[0].ssid));
+			  else ifcmp("psw") tcp_htmlstrcpy(config[i].password, sizeof(config[0].password));
+			  else ifcmp("sbss") tcp_puts("%d", config[i].bssid_set);
+			  else ifcmp("bssid") tcp_puts(MACSTR, MAC2STR(config[i].bssid));
+			  else tcp_put('?');
+		  }
+		  else ifcmp("id") wifi_aps_xml(ts_conn); */
+	  }
+	  else {
+		uint8 if_index;
+		ifcmp("ap_") if_index = SOFTAP_IF;
+		else ifcmp("st_") if_index = STATION_IF;
+		else { tcp_put('?'); return; };
+		cstr+=3;
+		struct ip_info wifi_info;
+		if(if_index == SOFTAP_IF) {
+			// SOFTAP_MODE
+			ifcmp("dhcp") tcp_puts("%d", (dhcps_flag==0)? 0 : 1);
+			else ifcmp("mac") {
+				uint8 macaddr[6];
+				wifi_get_macaddr(if_index, macaddr);
+				tcp_puts(MACSTR, MAC2STR(macaddr));
+			}
+			else {
+				uint8 opmode = wifi_get_opmode();
 #ifndef USE_OPEN_DHCPS
-					struct dhcps_lease dhcps_lease = wificonfig.ap.ipdhcp;
-					wifi_softap_get_dhcps_lease(&dhcps_lease);
+				struct dhcps_lease dhcps_lease = wificonfig.ap.ipdhcp;
+				wifi_softap_get_dhcps_lease(&dhcps_lease);
 #endif
-					if (((opmode & SOFTAP_MODE) == 0) || (!wifi_get_ip_info(SOFTAP_IF, &wifi_info))) {
-						wifi_info = wificonfig.ap.ipinfo;
+				if (((opmode & SOFTAP_MODE) == 0) || (!wifi_get_ip_info(SOFTAP_IF, &wifi_info))) {
+					wifi_info = wificonfig.ap.ipinfo;
 #ifdef USE_OPEN_DHCPS
-						dhcps_lease = wificonfig.ap.ipdhcp;
+					dhcps_lease = wificonfig.ap.ipdhcp;
 #endif
 //						p_dhcps_lease->start_ip = htonl(wificonfig.ap.ipdhcp.start_ip);
 //						p_dhcps_lease->end_ip = htonl(wificonfig.ap.ipdhcp.end_ip);
 //						p_dhcps_lease->start_ip = wificonfig.ap.ipdhcp.start_ip;
 //						p_dhcps_lease->end_ip = wificonfig.ap.ipdhcp.end_ip;
-					}
-					ifcmp("sip") tcp_puts(IPSTR, IP2STR((struct ip_addr *)&dhcps_lease.start_ip));
-					else ifcmp("eip") tcp_puts(IPSTR, IP2STR((struct ip_addr *)&dhcps_lease.end_ip));
-					else ifcmp("ip") tcp_puts(IPSTR, IP2STR(&wifi_info.ip));
-					else ifcmp("gw") tcp_puts(IPSTR, IP2STR(&wifi_info.gw));
-					else ifcmp("msk") tcp_puts(IPSTR, IP2STR(&wifi_info.netmask));
-					else {
-						struct softap_config wicfgap;
-						if(((opmode & SOFTAP_MODE) == 0) || (!wifi_softap_get_config(&wicfgap)) ) wicfgap = wificonfig.ap.config;
-						ifcmp("ssid") tcp_htmlstrcpy(wicfgap.ssid, sizeof(wicfgap.ssid));
-						else ifcmp("psw") tcp_htmlstrcpy(wicfgap.password, sizeof(wicfgap.password));
-						else ifcmp("chl") tcp_puts("%d", wicfgap.channel);
-						else ifcmp("auth") tcp_puts("%d", wicfgap.authmode);
-						else ifcmp("hssid") tcp_puts("%d", wicfgap.ssid_hidden);
-						else ifcmp("mcns") tcp_puts("%d", wicfgap.max_connection);
-						else ifcmp("bint") tcp_puts("%d", wicfgap.beacon_interval);
-						else tcp_put('?');
-					};
+				}
+				ifcmp("sip") tcp_puts(IPSTR, IP2STR((struct ip_addr *)&dhcps_lease.start_ip));
+				else ifcmp("eip") tcp_puts(IPSTR, IP2STR((struct ip_addr *)&dhcps_lease.end_ip));
+				else ifcmp("ip") tcp_puts(IPSTR, IP2STR(&wifi_info.ip));
+				else ifcmp("gw") tcp_puts(IPSTR, IP2STR(&wifi_info.gw));
+				else ifcmp("msk") tcp_puts(IPSTR, IP2STR(&wifi_info.netmask));
+				else {
+					struct softap_config wicfgap;
+					if(((opmode & SOFTAP_MODE) == 0) || (!wifi_softap_get_config(&wicfgap)) ) wicfgap = wificonfig.ap.config;
+					ifcmp("ssid") tcp_htmlstrcpy(wicfgap.ssid, sizeof(wicfgap.ssid));
+					else ifcmp("psw") tcp_htmlstrcpy(wicfgap.password, sizeof(wicfgap.password));
+					else ifcmp("chl") tcp_puts("%d", wicfgap.channel);
+					else ifcmp("auth") tcp_puts("%d", wicfgap.authmode);
+					else ifcmp("hssid") tcp_puts("%d", wicfgap.ssid_hidden);
+					else ifcmp("mcns") tcp_puts("%d", wicfgap.max_connection);
+					else ifcmp("bint") tcp_puts("%d", wicfgap.beacon_interval);
+					else tcp_put('?');
 				};
-            }
-            else { 
-            	// STATION_MODE
-            	ifcmp("dhcp") tcp_puts("%d", (dhcpc_flag==0)? 0 : 1);
-            	else ifcmp("rssi") tcp_puts("%d", wifi_station_get_rssi());
-    	        else ifcmp("aucn") tcp_puts("%d", wifi_station_get_auto_connect());
-				else ifcmp("sta") tcp_puts("%d", wifi_station_get_connect_status());
-	            else ifcmp("rect") tcp_puts("%u", wificonfig.st.reconn_timeout);
-                else ifcmp("hostname") { if(hostname != NULL) tcp_puts(hostname); else tcp_puts("none"); }
-                else ifcmp("mac") {
-					uint8 macaddr[6];
-					wifi_get_macaddr(if_index, macaddr);
-                	tcp_puts(MACSTR, MAC2STR(macaddr));
-                }
-            	else {
-					uint8 opmode = wifi_get_opmode();
-                	if (((opmode & STATION_MODE) == 0) || (!wifi_get_ip_info(STATION_IF, &wifi_info))) wifi_info = wificonfig.st.ipinfo;
-                    ifcmp("ip") tcp_puts(IPSTR, IP2STR(&wifi_info.ip));
-                    else ifcmp("gw") tcp_puts(IPSTR, IP2STR(&wifi_info.gw));
-                    else ifcmp("msk") tcp_puts(IPSTR, IP2STR(&wifi_info.netmask));
-                    else {
-                        struct station_config wicfgs;
-                        if(((opmode & STATION_MODE) == 0) || (!wifi_station_get_config(&wicfgs)) ) wicfgs = wificonfig.st.config;
-                        ifcmp("ssid") tcp_htmlstrcpy(wicfgs.ssid, sizeof(wicfgs.ssid));
-                        else ifcmp("psw") tcp_htmlstrcpy(wicfgs.password, sizeof(wicfgs.password));
-                        else ifcmp("sbss") tcp_puts("%d", wicfgs.bssid_set);
-                        else ifcmp("bssid") tcp_puts(MACSTR, MAC2STR(wicfgs.bssid));
-                        else tcp_put('?');
-                    };
-            	};
-            };
-          };
-        }
-        else ifcmp("uart_") {
-            cstr+=5;
-            volatile uint32 * uart_reg = uart0_;
-            if(cstr[1] != '_' || cstr[0]<'0' || cstr[0]>'1' ) {
-            	tcp_put('?');
-            	return;
-            }
-            if(cstr[0] != '0') uart_reg = uart1_;
-            cstr += 2;
-            ifcmp("baud") tcp_puts("%u", (uint32) UART_CLK_FREQ / (uart_reg[IDX_UART_CLKDIV] & UART_CLKDIV_CNT));
+			};
+		}
+		else {
+			// STATION_MODE
+			ifcmp("dhcp") tcp_puts("%d", (dhcpc_flag==0)? 0 : 1);
+			else ifcmp("rssi") tcp_puts("%d", wifi_station_get_rssi());
+			else ifcmp("aucn") tcp_puts("%d", wifi_station_get_auto_connect());
+			else ifcmp("sta") tcp_puts("%d", wifi_station_get_connect_status());
+			else ifcmp("rect") tcp_puts("%u", wificonfig.st.reconn_timeout);
+			else ifcmp("hostname") { if(hostname != NULL) tcp_puts(hostname); else tcp_puts("none"); }
+			else ifcmp("mac") {
+				uint8 macaddr[6];
+				wifi_get_macaddr(if_index, macaddr);
+				tcp_puts(MACSTR, MAC2STR(macaddr));
+			}
+			else {
+				uint8 opmode = wifi_get_opmode();
+				if (((opmode & STATION_MODE) == 0) || (!wifi_get_ip_info(STATION_IF, &wifi_info))) wifi_info = wificonfig.st.ipinfo;
+				ifcmp("ip") tcp_puts(IPSTR, IP2STR(&wifi_info.ip));
+				else ifcmp("gw") tcp_puts(IPSTR, IP2STR(&wifi_info.gw));
+				else ifcmp("msk") tcp_puts(IPSTR, IP2STR(&wifi_info.netmask));
+				else {
+					struct station_config wicfgs;
+					if(((opmode & STATION_MODE) == 0) || (!wifi_station_get_config(&wicfgs)) ) wicfgs = wificonfig.st.config;
+					ifcmp("ssid") tcp_htmlstrcpy(wicfgs.ssid, sizeof(wicfgs.ssid));
+					else ifcmp("psw") tcp_htmlstrcpy(wicfgs.password, sizeof(wicfgs.password));
+					else ifcmp("sbss") tcp_puts("%d", wicfgs.bssid_set);
+					else ifcmp("bssid") tcp_puts(MACSTR, MAC2STR(wicfgs.bssid));
+					else tcp_put('?');
+				};
+			};
+		};
+	  };
+	}
+	else ifcmp("uart_") {
+		cstr+=5;
+		volatile uint32 * uart_reg = uart0_;
+		if(cstr[1] != '_' || cstr[0]<'0' || cstr[0]>'1' ) {
+			tcp_put('?');
+			return;
+		}
+		if(cstr[0] != '0') uart_reg = uart1_;
+		cstr += 2;
+		ifcmp("baud") tcp_puts("%u", (uint32) UART_CLK_FREQ / (uart_reg[IDX_UART_CLKDIV] & UART_CLKDIV_CNT));
 //            else ifcmp("reg")	tcp_puts("%08x", uart_reg[hextoul(cstr + 3)]);
-            else ifcmp("parity") tcp_put((uart_reg[IDX_UART_CONF0] & UART_PARITY_EN)? '1':'0');
-            else ifcmp("even") tcp_put((uart_reg[IDX_UART_CONF0] & UART_PARITY)? '1' : '0');
-            else ifcmp("bits") tcp_puts("%u", (uart_reg[IDX_UART_CONF0] >> UART_BIT_NUM_S) & UART_BIT_NUM);
-            else ifcmp("stop") tcp_puts("%u",(uart_reg[IDX_UART_CONF0] >> UART_STOP_BIT_NUM_S) & UART_STOP_BIT_NUM);
-            else ifcmp("loopback") tcp_put((uart_reg[IDX_UART_CONF0] & UART_LOOPBACK)? '1' : '0');
-            else ifcmp("flow") {
-            	if(uart_reg == uart0_) tcp_put((uart0_flow_ctrl_flg)? '1' : '0');
-            	else tcp_put((uart_reg[IDX_UART_CONF0]&UART_RX_FLOW_EN)? '1' : '0');
-            }
-        	else ifcmp("swap") {
-        		tcp_put((PERI_IO_SWAP & ((uart_reg == uart0_)? PERI_IO_UART0_PIN_SWAP : PERI_IO_UART1_PIN_SWAP))? '1' : '0');
-        	}
-            else ifcmp("rts_inv") tcp_put((uart_reg[IDX_UART_CONF0]&UART_RTS_INV)? '1' : '0');
-            else ifcmp("cts_inv") tcp_put((uart_reg[IDX_UART_CONF0]&UART_CTS_INV)? '1' : '0');
-            else ifcmp("rxd_inv") tcp_put((uart_reg[IDX_UART_CONF0]&UART_RXD_INV)? '1' : '0');
-            else ifcmp("txd_inv") tcp_put((uart_reg[IDX_UART_CONF0]&UART_TXD_INV)? '1' : '0');
-            else ifcmp("dsr_inv") tcp_put((uart_reg[IDX_UART_CONF0]&UART_DSR_INV)? '1' : '0');
-            else ifcmp("dtr_inv") tcp_put((uart_reg[IDX_UART_CONF0]&UART_DTR_INV)? '1' : '0');
-            else tcp_put('?');
-        }
-        else ifcmp("bin_") {
-        	cstr+=4;
-        	ifcmp("flash") {
-        		cstr+=5;
-        		if(*cstr == '_') {
-        			cstr++;
-            		ifcmp("all") {
-            	    	web_conn->udata_start = 0;
-            	    	web_conn->udata_stop = spi_flash_real_size();
-            	    	web_get_flash(ts_conn);
-            		}
-            		else ifcmp("sec_") {
-            			web_conn->udata_start = ahextoul(cstr+4) << 12;
-            			web_conn->udata_stop = web_conn->udata_start + SPI_FLASH_SEC_SIZE;
-            			web_get_flash(ts_conn);
-            		}
-            		else ifcmp("const") {
-            	    	web_conn->udata_start = faddr_esp_init_data_default;
-            	    	web_conn->udata_stop = web_conn->udata_start + SIZE_SYS_CONST;
-            	    	web_get_flash(ts_conn);
-            		}
-            		else ifcmp("disk") {
-            			web_conn->udata_start = WEBFS_base_addr();
-            			web_conn->udata_stop = web_conn->udata_start + WEBFS_curent_size();
-            			web_get_flash(ts_conn);
-            		}
-            		else tcp_put('?');
+		else ifcmp("parity") tcp_put((uart_reg[IDX_UART_CONF0] & UART_PARITY_EN)? '1':'0');
+		else ifcmp("even") tcp_put((uart_reg[IDX_UART_CONF0] & UART_PARITY)? '1' : '0');
+		else ifcmp("bits") tcp_puts("%u", (uart_reg[IDX_UART_CONF0] >> UART_BIT_NUM_S) & UART_BIT_NUM);
+		else ifcmp("stop") tcp_puts("%u",(uart_reg[IDX_UART_CONF0] >> UART_STOP_BIT_NUM_S) & UART_STOP_BIT_NUM);
+		else ifcmp("loopback") tcp_put((uart_reg[IDX_UART_CONF0] & UART_LOOPBACK)? '1' : '0');
+		else ifcmp("flow") {
+			if(uart_reg == uart0_) tcp_put((uart0_flow_ctrl_flg)? '1' : '0');
+			else tcp_put((uart_reg[IDX_UART_CONF0]&UART_RX_FLOW_EN)? '1' : '0');
+		}
+		else ifcmp("swap") {
+			tcp_put((PERI_IO_SWAP & ((uart_reg == uart0_)? PERI_IO_UART0_PIN_SWAP : PERI_IO_UART1_PIN_SWAP))? '1' : '0');
+		}
+		else ifcmp("rts_inv") tcp_put((uart_reg[IDX_UART_CONF0]&UART_RTS_INV)? '1' : '0');
+		else ifcmp("cts_inv") tcp_put((uart_reg[IDX_UART_CONF0]&UART_CTS_INV)? '1' : '0');
+		else ifcmp("rxd_inv") tcp_put((uart_reg[IDX_UART_CONF0]&UART_RXD_INV)? '1' : '0');
+		else ifcmp("txd_inv") tcp_put((uart_reg[IDX_UART_CONF0]&UART_TXD_INV)? '1' : '0');
+		else ifcmp("dsr_inv") tcp_put((uart_reg[IDX_UART_CONF0]&UART_DSR_INV)? '1' : '0');
+		else ifcmp("dtr_inv") tcp_put((uart_reg[IDX_UART_CONF0]&UART_DTR_INV)? '1' : '0');
+		else tcp_put('?');
+	}
+	else ifcmp("bin_") {
+		cstr+=4;
+		ifcmp("flash") {
+			cstr+=5;
+			if(*cstr == '_') {
+				cstr++;
+				ifcmp("all") {
+					web_conn->udata_start = 0;
+					web_conn->udata_stop = spi_flash_real_size();
+					web_get_flash(ts_conn);
+				}
+				else ifcmp("sec_") {
+					web_conn->udata_start = ahextoul(cstr+4) << 12;
+					web_conn->udata_stop = web_conn->udata_start + SPI_FLASH_SEC_SIZE;
+					web_get_flash(ts_conn);
+				}
+				else ifcmp("const") {
+					web_conn->udata_start = faddr_esp_init_data_default;
+					web_conn->udata_stop = web_conn->udata_start + SIZE_SYS_CONST;
+					web_get_flash(ts_conn);
+				}
+				else ifcmp("disk") {
+					web_conn->udata_start = WEBFS_base_addr();
+					web_conn->udata_stop = web_conn->udata_start + WEBFS_current_size();
+					web_get_flash(ts_conn);
+				}
+        		else ifcmp("settings") {
+        	    	web_conn->udata_start = FMEMORY_SCFG_BASE_ADDR;
+        	    	web_conn->udata_stop = FMEMORY_SCFG_BASE_ADDR + current_cfg_length();
+        	    	web_get_flash(ts_conn);
         		}
-        		else web_get_flash(ts_conn);
-        	}
-        	else ifcmp("ram") web_get_ram(ts_conn);
+				else tcp_put('?');
+			}
+			else web_get_flash(ts_conn);
+		}
+		else ifcmp("ram") web_get_ram(ts_conn);
 #ifdef USE_MODBUS
-        	else ifcmp("mdb") {
-    			web_conn->udata_start = (uint32) &mdb_buf;
-    			web_conn->udata_stop = web_conn->udata_start + sizeof(mdb_buf);
-        		web_get_ram(ts_conn);
-        	}
+		else ifcmp("mdb") {
+			web_conn->udata_start = (uint32) &mdb_buf;
+			web_conn->udata_stop = web_conn->udata_start + sizeof(mdb_buf);
+			web_get_ram(ts_conn);
+		}
 #endif
-        	// history.csv, historycnt.csv
-        	else ifcmp("history") {
-        		cstr += 7;
-        		web_conn->udata_start = 0;
-				web_conn->udata_start = (Web_ShowBy<<1) | Web_ShowByKWT;	// OutType
-        		ifcmp("cnt") {
-        			web_conn->udata_start = (web_conn->udata_start & ~HST_ByHour) | HST_TotalCnt;
-        			if(cfg_glo.TimeT1Start || cfg_glo.TimeT1End) web_conn->udata_start |= HST_MTariffs; // Multi tariffs
-        		}
-				web_conn->udata_stop = Web_ChartMaxDays * 60*24; 	// how many minutes, 0 = all
+		// history.csv, historycnt.csv, historyall.csv, historyallcnt.csv
+		else ifcmp("history") {
+			cstr += 7;
+			ifcmp("all") {
+				cstr += 3;
+				web_conn->udata_start = 0;
+			} else {
+				if(Web_ShowBy == 0) Web_ShowBy = 1;
+				web_conn->udata_start = (Web_ShowBy<<1); // | Web_ShowByKWT;	// OutType
+			}
+			ifcmp("cnt") {
+				web_conn->udata_start = (web_conn->udata_start & ~HST_ByHour) | HST_TotalCnt;
+				//if(cfg_glo.TimeT1Start || cfg_glo.TimeT1End) web_conn->udata_start |= HST_MTariffs; // Multi tariffs
+			}
+			web_conn->udata_stop = Web_ChartMaxDays;
+			if(web_conn->udata_start & HST_ByDay) {
+				web_conn->web_disc_par = fram_store.PtrCurrentByDay;
+				web_get_history_bydays(ts_conn);
+			} else {
+				web_conn->udata_stop *= 60*24; 	// how many minutes, 0 = all
 				web_get_history(ts_conn);
-        	}
-        	// fram_all.bin
-        	else ifcmp("fram_all") {
-    			web_conn->udata_start = 0;
-    			web_conn->udata_stop = cfg_glo.Fram_Size;
-    			web_get_i2c_eeprom(ts_conn);
-        	}
-        	//
-        	else tcp_put('?');
-        }
-        else ifcmp("hexdmp") {
-        	if(cstr[6]=='d') ts_conn->flag.user_option1 = 1;
-        	else ts_conn->flag.user_option1 = 0;
-        	web_hexdump(ts_conn);
-        }
-        else ifcmp("hellomsg") tcp_puts_fd("Power Meter");
+			}
+		}
+		// fram_all.bin
+		else ifcmp("fram_all") {
+			web_conn->udata_start = 0;
+			web_conn->udata_stop = cfg_glo.Fram_Size;
+			web_get_i2c_eeprom(ts_conn);
+		}
+		//
+		else tcp_put('?');
+	}
+	else ifcmp("hexdmp") {
+		if(cstr[6]=='d') ts_conn->flag.user_option1 = 1;
+		else ts_conn->flag.user_option1 = 0;
+		web_hexdump(ts_conn);
+	}
+	else ifcmp("hellomsg") tcp_puts_fd("Power Meter");
 #ifdef USE_TCP2UART
-        else ifcmp("tcp_") {
-        	cstr+=4;
+	else ifcmp("tcp_") {
+		cstr+=4;
 #if 0
-        	ifcmp("connected") {
-        		if(tcp2uart_conn == NULL) tcp_put('0');
-        		else tcp_put('1');
-        	}
-        	else
+		ifcmp("connected") {
+			if(tcp2uart_conn == NULL) tcp_put('0');
+			else tcp_put('1');
+		}
+		else
 #endif
-        	ifcmp("remote") {
-        		if(uart_drv.uart_rx_buf != NULL && tcp2uart_conn != NULL) {
-	        		tcp_puts(IPSTR ":%d", IP2STR(&(tcp2uart_conn->remote_ip.dw)), tcp2uart_conn->remote_port);
-        		}
-        		else tcp_strcpy_fd("closed");
-        	}
-        	else ifcmp("host") {
-        		if(uart_drv.uart_rx_buf != NULL && tcp2uart_conn != NULL && tcp2uart_conn->pcb != NULL) tcp_puts(IPSTR ":%d", IP2STR(&(tcp2uart_conn->pcb->local_ip.addr)), tcp2uart_conn->pcb->local_port);
-        		else tcp_strcpy_fd("none");
-        	}
+		ifcmp("remote") {
+			if(uart_drv.uart_rx_buf != NULL && tcp2uart_conn != NULL) {
+				tcp_puts(IPSTR ":%d", IP2STR(&(tcp2uart_conn->remote_ip.dw)), tcp2uart_conn->remote_port);
+			}
+			else tcp_strcpy_fd("closed");
+		}
+		else ifcmp("host") {
+			if(uart_drv.uart_rx_buf != NULL && tcp2uart_conn != NULL && tcp2uart_conn->pcb != NULL) tcp_puts(IPSTR ":%d", IP2STR(&(tcp2uart_conn->pcb->local_ip.addr)), tcp2uart_conn->pcb->local_port);
+			else tcp_strcpy_fd("none");
+		}
 #if 0
-       		else ifcmp("twrec") {
-       			if(tcp2uart_conn!=NULL) tcp_puts("%u", tcp2uart_conn->pcfg->time_wait_rec);
-       			else tcp_strcpy_fd("closed");
-       		}
-       		else ifcmp("twcls") {
-       			if(tcp2uart_conn!=NULL) tcp_puts("%u", tcp2uart_conn->pcfg->time_wait_cls);
-       			else tcp_strcpy_fd("closed");
-       		}
+		else ifcmp("twrec") {
+			if(tcp2uart_conn!=NULL) tcp_puts("%u", tcp2uart_conn->pcfg->time_wait_rec);
+			else tcp_strcpy_fd("closed");
+		}
+		else ifcmp("twcls") {
+			if(tcp2uart_conn!=NULL) tcp_puts("%u", tcp2uart_conn->pcfg->time_wait_cls);
+			else tcp_strcpy_fd("closed");
+		}
 #endif
-       		else tcp_put('?');
-        }
+		else tcp_put('?');
+	}
 #endif // USE_TCP2UART
-        else ifcmp("web_") {
-        	cstr+=4;
+	else ifcmp("web_") {
+		cstr+=4;
 #if 0
-        	ifcmp("port") tcp_puts("%u", ts_conn->pcfg->port);
-        	else
+		ifcmp("port") tcp_puts("%u", ts_conn->pcfg->port);
+		else
 #endif
-        		ifcmp("host") tcp_puts(IPSTR ":%d", IP2STR(&(ts_conn->pcb->local_ip.addr)), ts_conn->pcb->local_port);
-        	else ifcmp("remote") tcp_puts(IPSTR ":%d", IP2STR(&(ts_conn->remote_ip.dw)), ts_conn->remote_port);
+			ifcmp("host") tcp_puts(IPSTR ":%d", IP2STR(&(ts_conn->pcb->local_ip.addr)), ts_conn->pcb->local_port);
+		else ifcmp("remote") tcp_puts(IPSTR ":%d", IP2STR(&(ts_conn->remote_ip.dw)), ts_conn->remote_port);
 #if 0
-        	else ifcmp("twrec") tcp_puts("%u", ts_conn->pcfg->time_wait_rec);
-        	else ifcmp("twcls") tcp_puts("%u", ts_conn->pcfg->time_wait_cls);
+		else ifcmp("twrec") tcp_puts("%u", ts_conn->pcfg->time_wait_rec);
+		else ifcmp("twcls") tcp_puts("%u", ts_conn->pcfg->time_wait_cls);
 #endif
-        	else tcp_put('?');
-        }
+		else tcp_put('?');
+	}
 #ifdef USE_MODBUS
-        else ifcmp("mdb_") {
-        	cstr+=4;
-       		ifcmp("host") {
-       			if(mdb_tcp_servcfg!= NULL && mdb_tcp_servcfg->conn_links != NULL)
-       				tcp_puts(IPSTR ":%d", IP2STR(&(mdb_tcp_servcfg->conn_links->pcb->local_ip.addr)), mdb_tcp_servcfg->conn_links->pcb->local_port);
-       			else tcp_strcpy_fd("none");
-       		}
-        	else ifcmp("remote") {
-        		if(mdb_tcp_servcfg!= NULL && mdb_tcp_servcfg->conn_links != NULL)
-        			tcp_puts(IPSTR ":%d", IP2STR(&(mdb_tcp_servcfg->conn_links->remote_ip.dw)), mdb_tcp_servcfg->conn_links->remote_port);
-        		else tcp_strcpy_fd("closed");
-        	}
-        	else tcp_put('?');
-        }
+	else ifcmp("mdb_") {
+		cstr+=4;
+		ifcmp("host") {
+			if(mdb_tcp_servcfg!= NULL && mdb_tcp_servcfg->conn_links != NULL)
+				tcp_puts(IPSTR ":%d", IP2STR(&(mdb_tcp_servcfg->conn_links->pcb->local_ip.addr)), mdb_tcp_servcfg->conn_links->pcb->local_port);
+			else tcp_strcpy_fd("none");
+		}
+		else ifcmp("remote") {
+			if(mdb_tcp_servcfg!= NULL && mdb_tcp_servcfg->conn_links != NULL)
+				tcp_puts(IPSTR ":%d", IP2STR(&(mdb_tcp_servcfg->conn_links->remote_ip.dw)), mdb_tcp_servcfg->conn_links->remote_port);
+			else tcp_strcpy_fd("closed");
+		}
+		else tcp_put('?');
+	}
 #endif
 #ifdef USE_RS485DRV
-        else ifcmp("rs485_") {
-        	cstr+=6;
-        	ifcmp("baud") tcp_puts("%u", rs485cfg.baud);
-        	else ifcmp("timeout") tcp_puts("%u", rs485cfg.timeout);
-           	else ifcmp("pause") tcp_puts("%u", rs485cfg.pause);
-        	else ifcmp("parity") tcp_puts("%u", rs485cfg.flg.b.parity);
-        	else ifcmp("pinre") tcp_puts("%u", rs485cfg.flg.b.pin_ena);
-        	else ifcmp("swap") tcp_put((rs485cfg.flg.b.swap)? '1' : '0');
-        	else ifcmp("spdtw") tcp_put((rs485cfg.flg.b.spdtw)? '1' : '0');
-        	else ifcmp("master") tcp_put((rs485cfg.flg.b.master)? '1' : '0');
-        	else ifcmp("enable") tcp_put((rs485vars.status != RS485_TX_RX_OFF)? '1' : '0');
-        	else tcp_put('?');
-        }
+	else ifcmp("rs485_") {
+		cstr+=6;
+		ifcmp("baud") tcp_puts("%u", rs485cfg.baud);
+		else ifcmp("timeout") tcp_puts("%u", rs485cfg.timeout);
+		else ifcmp("pause") tcp_puts("%u", rs485cfg.pause);
+		else ifcmp("parity") tcp_puts("%u", rs485cfg.flg.b.parity);
+		else ifcmp("pinre") tcp_puts("%u", rs485cfg.flg.b.pin_ena);
+		else ifcmp("swap") tcp_put((rs485cfg.flg.b.swap)? '1' : '0');
+		else ifcmp("spdtw") tcp_put((rs485cfg.flg.b.spdtw)? '1' : '0');
+		else ifcmp("master") tcp_put((rs485cfg.flg.b.master)? '1' : '0');
+		else ifcmp("enable") tcp_put((rs485vars.status != RS485_TX_RX_OFF)? '1' : '0');
+		else tcp_put('?');
+	}
 #endif
 
-        else ifcmp("wfs_") {
-        	cstr+=4;
-        	ifcmp("files") tcp_puts("%u", numFiles);
-        	else ifcmp("addr") tcp_puts("0x%08x", WEBFS_base_addr());
-        	else ifcmp("size") tcp_puts("%u", WEBFS_curent_size());
-        	else ifcmp("max_size") tcp_puts("%u", WEBFS_max_size());
-        	else tcp_put('?');
-        }
-        else ifcmp("gpio") {
-            cstr+=4;
-        	if((*cstr>='0')&&(*cstr<='9')) {
-        		uint32 n = atoi(cstr);
-        		cstr++;
-        		if(*cstr != '_') cstr++;
-        		if(*cstr == '_' && n < 16) {
-        			cstr++;
-        			ifcmp("inp") {
-        				if(GPIO_IN & (1<<n)) tcp_put('1');
-        				else tcp_put('0');
-        			}
-        			else ifcmp("out") {
-        				if(GPIO_OUT &(1<<n)) tcp_put('1');
-        				else tcp_put('0');
-        			}
-        			else ifcmp("dir") {
-        				if(GPIO_ENABLE & (1<<n)) tcp_put('1');
-        				else tcp_put('0');
-        			}
-        			else ifcmp("fun")	tcp_puts("%u", get_gpiox_mux_func(n));
-        			else ifcmp("pull")	tcp_puts("%u", (get_gpiox_mux(n) >> GPIO_MUX_PULLDOWN_BIT) & 3);
-    	            else ifcmp("opd")	tcp_put((GPIOx_PIN(n) & (1<<GPIO_PIN_DRIVER)) ? '1' : '0');
-    	            else ifcmp("pu")	tcp_put((get_gpiox_mux(n) & (1 << GPIO_MUX_PULLUP_BIT)) ? '1' : '0');
-    	            else ifcmp("pd")	tcp_put((get_gpiox_mux(n) & (1 << GPIO_MUX_PULLDOWN_BIT)) ? '1' : '0');
-        			else tcp_put('?');
-        		}
-        		else tcp_put('?');
-        	}
-        	else if(*cstr == '_') {
-        		cstr++;
-        		ifcmp("inp") tcp_puts("%u", GPIO_IN & 0xFFFF);
-        		else ifcmp("out") tcp_puts("%u", GPIO_OUT & 0xFFFF);
-        		else ifcmp("dir") tcp_puts("%u", GPIO_ENABLE & 0xFFFF);
-            	else tcp_put('?');
-        	}
-        	else tcp_put('?');
-        }
-#ifdef USE_OVERLAY
-		else ifcmp("ovl") {
-			cstr += 3;
-			if(*cstr == ':') {
-				int i = ovl_loader(cstr + 1);
-				if (i == 0) {
-					if(CheckSCB(SCB_WEBSOC)) {
-						tcp_puts("%d", ovl_call(1));
-					}
-					else {
-						web_conn->web_disc_cb = (web_func_disc_cb)ovl_call; // адрес старта оверлея
-						web_conn->web_disc_par = 1; // параметр функции - инициализация
-					}
+	else ifcmp("wfs_") {
+		cstr+=4;
+		ifcmp("files") tcp_puts("%u", numFiles);
+		else ifcmp("addr") tcp_puts("0x%08x", WEBFS_base_addr());
+		else ifcmp("size") tcp_puts("%u", WEBFS_current_size());
+		else ifcmp("max_size") tcp_puts("%u", WEBFS_max_size());
+		else tcp_put('?');
+	}
+	else ifcmp("gpio") {
+		cstr+=4;
+		if((*cstr>='0')&&(*cstr<='9')) {
+			uint32 n = atoi(cstr);
+			cstr++;
+			if(*cstr != '_') cstr++;
+			if(*cstr == '_' && n < 16) {
+				cstr++;
+				ifcmp("inp") {
+					if(GPIO_IN & (1<<n)) tcp_put('1');
+					else tcp_put('0');
 				}
-				tcp_puts("%d", i);
+				else ifcmp("out") {
+					if(GPIO_OUT &(1<<n)) tcp_put('1');
+					else tcp_put('0');
+				}
+				else ifcmp("dir") {
+					if(GPIO_ENABLE & (1<<n)) tcp_put('1');
+					else tcp_put('0');
+				}
+				else ifcmp("fun")	tcp_puts("%u", get_gpiox_mux_func(n));
+				else ifcmp("pull")	tcp_puts("%u", (get_gpiox_mux(n) >> GPIO_MUX_PULLDOWN_BIT) & 3);
+				else ifcmp("opd")	tcp_put((GPIOx_PIN(n) & (1<<GPIO_PIN_DRIVER)) ? '1' : '0');
+				else ifcmp("pu")	tcp_put((get_gpiox_mux(n) & (1 << GPIO_MUX_PULLUP_BIT)) ? '1' : '0');
+				else ifcmp("pd")	tcp_put((get_gpiox_mux(n) & (1 << GPIO_MUX_PULLDOWN_BIT)) ? '1' : '0');
+				else tcp_put('?');
 			}
-			else if(*cstr == '$') {
-    			if(ovl_call != NULL) tcp_puts("%d", ovl_call(ahextoul(cstr + 1)));
-    			else tcp_put('?');
-    		}
-			else if(*cstr == '@') {
-    			if(ovl_call != NULL) tcp_puts("%d", ovl_call((int) cstr + 1));
-    			else tcp_put('?');
-    		}
 			else tcp_put('?');
 		}
+		else if(*cstr == '_') {
+			cstr++;
+			ifcmp("inp") tcp_puts("%u", GPIO_IN & 0xFFFF);
+			else ifcmp("out") tcp_puts("%u", GPIO_OUT & 0xFFFF);
+			else ifcmp("dir") tcp_puts("%u", GPIO_ENABLE & 0xFFFF);
+			else tcp_put('?');
+		}
+		else tcp_put('?');
+	}
+#ifdef USE_OVERLAY
+	else ifcmp("ovl") {
+		cstr += 3;
+		if(*cstr == ':') {
+			int i = ovl_loader(cstr + 1);
+			if (i == 0) {
+				if(CheckSCB(SCB_WEBSOC)) {
+					tcp_puts("%d", ovl_call(1));
+				}
+				else {
+					web_conn->web_disc_cb = (web_func_disc_cb)ovl_call; // адрес старта оверлея
+					web_conn->web_disc_par = 1; // параметр функции - инициализация
+				}
+			}
+			tcp_puts("%d", i);
+		}
+		else if(*cstr == '$') {
+			if(ovl_call != NULL) tcp_puts("%d", ovl_call(ahextoul(cstr + 1)));
+			else tcp_put('?');
+		}
+		else if(*cstr == '@') {
+			if(ovl_call != NULL) tcp_puts("%d", ovl_call((int) cstr + 1));
+			else tcp_put('?');
+		}
+		else ifcmp("_cfg_") {
+			cstr += 5;
+			ifcmp("ip") tcp_puts(IPSTR, IP2STR(&cfg_overlay.ip_addr));
+			else ifcmp("arr") tcp_puts("%d", cfg_overlay.array16b[ahextoul(cstr + 3)]);
+		}
+		else tcp_put('?');
+	}
 #endif
 #ifdef USE_SNTP
-		else ifcmp("sntp_") {
-			cstr += 5;
-			ifcmp("time") tcp_puts("%u", get_sntp_time());
-			else tcp_put('?');
-		}
+	else ifcmp("sntp_") {
+		cstr += 5;
+		ifcmp("time") tcp_puts("%u", get_sntp_time());
+		else ifcmp("status") tcp_puts("%s", sntp_status ? "Ok" : "?");
+		else tcp_put('?');
+	}
 #endif
 #ifdef TEST_SEND_WAVE
-        else ifcmp("test_adc") web_test_adc(ts_conn);
+	else ifcmp("test_adc") web_test_adc(ts_conn);
 #endif
 // PowerMeter
-        else ifcmp("PowerCnt") tcp_puts("%u", fram_store.PowerCnt);
-        else ifcmp("TotalCntTime") tcp_puts("%u", sntp_local_to_UTC_time(fram_store.LastTime));
-        else ifcmp("TotalCntT1") tcp_puts("%u", fram_store.TotalCntT1);
-        else ifcmp("TotalCntT2") tcp_puts("%u", fram_store.TotalCnt - fram_store.TotalCntT1);
-        else ifcmp("TotalCnt") tcp_puts("%u", fram_store.TotalCnt);
-        else ifcmp("LastCnt") {
-        	cstr += 7;
-        	tcp_puts("%u", LastCnt);
-        	ifcmp("_Fill") { // only non zero value
-        		if(LastCnt_Previous == 0 && LastCnt == 0) web_conn->webflag |= SCB_USER; // do not send data to IoT cloud
-        		LastCnt_Previous = LastCnt;
-        	}
-        }
-        else ifcmp("PtrCurrent") tcp_puts("%u", fram_store.PtrCurrent);
-        else ifcmp("CntCurrent1") tcp_puts("%u", CntCurrent.Cnt1);
-        else ifcmp("CntCurrent2") tcp_puts("%u", CntCurrent.Cnt2);
-        else ifcmp("TotalKWT") { // TotalKWT, TotalKWTT1, TotalKWTT2; TotalKWT_New, TotalKWT_NewT1, TotalKWT_NewT2
-        	cstr += 8;
-        	ifcmp("_New") { // only new value
-        		if(fram_store.TotalCnt == KWT_Previous) web_conn->webflag |= SCB_USER; // do not send data to IoT cloud;
-        		KWT_Previous = fram_store.TotalCnt;
-        		cstr += 4;
-        	}
-        	typeof(fram_store.TotalCnt) cnt;
-        	cnt = rom_xstrcmp(cstr, "T1") ? fram_store.TotalCntT1 : rom_xstrcmp(cstr, "T2") ? fram_store.TotalCnt - fram_store.TotalCntT1 : fram_store.TotalCnt;
-        	tcp_puts("%u.%03u", cnt / (cfg_glo.PulsesPer0_01KWt * 100), (cnt * 10 / cfg_glo.PulsesPer0_01KWt) % 1000);
-        }
+	else ifcmp("PowerCnt") tcp_puts("%u", fram_store.ByMin.PowerCnt);
+	else ifcmp("TotalCntTime") tcp_puts("%u", sntp_local_to_UTC_time(fram_store.ByMin.LastTime));
+	else ifcmp("TotalCnt") tcp_puts("%u", fram_store.ByMin.TotalCnt);
+	else ifcmp("LastCnt") {
+		cstr += 7;
+		tcp_puts("%u", LastCnt);
+		ifcmp("_Fill") { // only non zero value
+			if(LastCnt_Previous == 0 && LastCnt == 0) web_conn->webflag |= SCB_USER; // do not send data to IoT cloud
+			LastCnt_Previous = LastCnt;
+		}
+	}
+	else ifcmp("PtrCurrDay") tcp_puts("%u", fram_store.PtrCurrentByDay);
+	else ifcmp("PtrCurr") tcp_puts("%u", fram_store.ByMin.PtrCurrent);
+	else ifcmp("PrevTW") tcp_puts("%u", fram_store.ByMin.PreviousTotalW);
+	else ifcmp("St_LD") tcp_puts("%u", fram_store.LastDay);
+	else ifcmp("St_LT1") tcp_puts("%u", fram_store.LastTotal_T1);
+	else ifcmp("St_LT") tcp_puts("%u", fram_store.LastTotal);
+	else ifcmp("TotalKWT") { // TotalKWT, TotalKWTT1, TotalKWTT2; TotalKWT_New, TotalKWT_NewT1, TotalKWT_NewT2
+		cstr += 8;
+		uint32 tot = pwmt_cur.Total[0] + pwmt_cur.Total[1] + + pwmt_cur.Total[2];
+		uint32 tot1 = pwmt_cur.Total_T1[0] + pwmt_cur.Total_T1[1] + + pwmt_cur.Total_T1[2];
+		ifcmp("_New") { // only new value
+			if(tot == KWT_Previous) web_conn->webflag |= SCB_USER; // do not send data to IoT cloud;
+			KWT_Previous = tot;
+			cstr += 4;
+		}
+		tot = rom_xstrcmp(cstr, "T1") ? tot1 : rom_xstrcmp(cstr, "T2") ? tot - tot1 : tot;
+		tcp_puts("%u.%03u", tot / 1000, tot % 1000);
+	}
+	else ifcmp("PWMT_") { // "PWMT_?n", n = array idx
+		cstr += 5;
+		ifcmp("conn_st") tcp_puts("%u", pwmt_connect_status);
+		else ifcmp("last_resp") tcp_puts("%u", pwmt_last_response);
+		else ifcmp("qlen") tcp_puts("%u", uart_queue_len);
+		else ifcmp("errs") tcp_puts("%u", pwmt_read_errors);
+		else ifcmp("power") tcp_puts("%u", pwmt_cur.P[0] + pwmt_cur.P[1] + pwmt_cur.P[2]);
+		else ifcmp("arch_") {
+			cstr += 5;
+			ifcmp("Td1") tcp_puts("%u", pwmt_arch.Today_T1);
+			else ifcmp("Td") tcp_puts("%u", pwmt_arch.Today);
+			else ifcmp("T1") tcp_puts("%u", pwmt_arch.Total_T1);
+			else ifcmp("T") tcp_puts("%u", pwmt_arch.Total);
+		}
+		else {
+			uint8 i = atoi(cstr+1);
+			char c = *cstr;
+			if(c == 'P') tcp_puts("%d", pwmt_cur.P[i]);
+			else if(c == 'S') tcp_puts("%d", pwmt_cur.S[i]);
+			else if(c == 'I') tcp_puts("%d", pwmt_cur.I[i]);
+			else if(c == 'U') tcp_puts("%d", pwmt_cur.U[i]);
+			else if(c == 'K') tcp_puts("%d", pwmt_cur.K[i]);
+			else if(c == 'A') tcp_puts("%u", pwmt_cur.Total[i]);
+			else if(c == '1') tcp_puts("%u", pwmt_cur.Total_T1[i]);
+			else if(c == '2') tcp_puts("%u", pwmt_cur.Total[i] - pwmt_cur.Total_T1[i]);
+			else if(c == 'T') tcp_puts("%u", pwmt_cur.Time);
+		}
+	}
 #ifdef USE_I2C
-        else ifcmp("i2c_errors") tcp_puts("%u", I2C_EEPROM_Error);
+	else ifcmp("i2c_errors") tcp_puts("%u", I2C_EEPROM_Error);
 #endif
-        else ifcmp("ChartMaxDays") tcp_puts("%u", Web_ChartMaxDays);
-        else ifcmp("ShowByKWT") tcp_puts("%d", Web_ShowByKWT);
-        else ifcmp("ShowBy") tcp_puts("%d", Web_ShowBy);
-        else ifcmp("iot_") {
-        	cstr += 4;
-            ifcmp("LastSt_time") tcp_puts("%u", iot_last_status_time);
-            else ifcmp("LastSt") tcp_puts("%s", iot_last_status);
-        }
+	else ifcmp("ChartMaxDays") tcp_puts("%u", Web_ChartMaxDays);
+	else ifcmp("ShowBy") tcp_puts("%d", Web_ShowBy);
+	else ifcmp("iot_") {
+		cstr += 4;
+		ifcmp("LastSt_time") tcp_puts("%u", iot_last_status_time);
+		else ifcmp("LastSt") tcp_puts("%s", iot_last_status);
+	}
+	else ifcmp("power_xml") {
+		web_conn->udata_start = 0;
+		web_power_xml(ts_conn);
+	}
 #ifdef DEBUG_TO_RAM
-        else ifcmp("dbg_") { // debug to RAM
-        	cstr += 4;
-        	ifcmp("enable") tcp_puts("%d", Debug_level);
-        	else ifcmp("addr") tcp_puts("0x%x", (uint32)Debug_RAM_addr);
-        	else ifcmp("size") tcp_puts("%u", Debug_RAM_size);
-        	else ifcmp("len") tcp_puts("%u", Debug_RAM_len);
-        	else ifcmp("ram") dbg_tcp_send(ts_conn);
-        }
+	else ifcmp("dbg_") { // debug to RAM
+		cstr += 4;
+		ifcmp("enable") tcp_puts("%d", Debug_level);
+		else ifcmp("addr") tcp_puts("0x%x", (uint32)Debug_RAM_addr);
+		else ifcmp("size") tcp_puts("%u", Debug_RAM_size);
+		else ifcmp("len") tcp_puts("%u", Debug_RAM_len);
+		else ifcmp("ram") dbg_tcp_send(ts_conn);
+	}
 #endif
-        else ifcmp("mktime") tcp_puts("%s %s", __DATE__, __TIME__); // make date time
+	else ifcmp("mktime") tcp_puts("%s %s", __DATE__, __TIME__); // make date time
+	else ifcmp("command_") {
+		cstr += 8;
+		ifcmp("send") web_int_callback_print_hexarray(web_conn, pwmt_command_send, pwmt_command_send_len);
+		else ifcmp("response") web_int_callback_print_hexarray(web_conn, pwmt_command_response, pwmt_command_response_len);
+		else ifcmp("resp_st") tcp_puts("%d", pwmt_command_response_status);
+	}
+	else ifcmp("time_l") {
+		cstr += 6;
+		uint8 i = *cstr - '0';
+		tcp_puts("%u", pwmt_time_array[i][*(++cstr) - '0']);
+	}
 // PowerMeter
-		else tcp_put('?');
+	else tcp_put('?');
 }
+
+#else
+void ICACHE_FLASH_ATTR web_int_callback(void *ts_conn, uint8 *cstr) {}
+#endif // BUILD_FOR_OTA_512k
 
 #endif // USE_WEB

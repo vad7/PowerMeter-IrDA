@@ -3,6 +3,8 @@
  * Written by vad7@yahoo.com
  *
 */
+#include "user_config.h"
+#ifdef DEBUG_TO_RAM
 
 #include "debug_ram.h"
 #include "bios/ets.h"
@@ -16,6 +18,7 @@ uint32 Debug_RAM_size = 4096;
 uint8 *Debug_RAM_addr = NULL;
 uint32 Debug_RAM_len = 0;
 uint8  Debug_level = 0;
+uint32 Debug_last_time = 0;
 //uint8  Save_system_set_os_print = 0xFF;
 
 void dbg_printf_out(char c)
@@ -24,6 +27,13 @@ void dbg_printf_out(char c)
 		Debug_RAM_addr[Debug_RAM_len++] = c;
 	}
 }
+
+uint32 dbg_next_time(void) {
+	uint32 ret = system_get_time() - Debug_last_time;
+	Debug_last_time = system_get_time();
+	return ret;
+}
+
 // Write debug info to RAM buffer
 void dbg_printf(const char *format, ...) {
 	if(Debug_RAM_addr == NULL) return;
@@ -82,3 +92,5 @@ void ICACHE_FLASH_ATTR dbg_tcp_send(void * ts_conn)
 	}
 	ClrSCB(SCB_RETRYCB);
 }
+
+#endif

@@ -1,23 +1,11 @@
 
+#include "user_config.h"
+#ifndef BUILD_FOR_OTA_512k
 #include "bios.h"
 #include "hw/esp8266.h"
-#include "time.h"
+#include "localtime.h"
 
 /////////////////////////////////////////////////////////////////////////////////
-#define SECSPERMIN	60L
-#define MINSPERHOUR	60L
-#define HOURSPERDAY	24L
-#define SECSPERHOUR	(SECSPERMIN * MINSPERHOUR)
-#define SECSPERDAY	(SECSPERHOUR * HOURSPERDAY)
-#define DAYSPERWEEK	7
-#define MONSPERYEAR	12
-
-#define YEAR_BASE		1900
-#define EPOCH_YEAR      1970
-#define EPOCH_WDAY      4
-#define EPOCH_YEARS_SINCE_LEAP 2
-#define EPOCH_YEARS_SINCE_CENTURY 70
-#define EPOCH_YEARS_SINCE_LEAP_CENTURY 370
 
 #define isleap(y) ((((y) % 4) == 0 && ((y) % 100) != 0) || ((y) % 400) == 0)
 
@@ -43,8 +31,8 @@ void ICACHE_FLASH_ATTR _localtime(time_t * tim_p, struct tm * res)
   /* base decision about std/dst time on current time */
   lcltime = *tim_p;
 
-  days = ((long)lcltime) / SECSPERDAY;
-  rem = ((long)lcltime) % SECSPERDAY;
+  days = lcltime / SECSPERDAY;
+  rem = lcltime % SECSPERDAY;
   while (rem < 0)
     {
       rem += SECSPERDAY;
@@ -57,10 +45,10 @@ void ICACHE_FLASH_ATTR _localtime(time_t * tim_p, struct tm * res)
     }
 
   /* compute hour, min, and sec */
-  (*res).tm_hour = (int) (rem / SECSPERHOUR);
+  (*res).tm_hour = (rem / SECSPERHOUR);
   rem %= SECSPERHOUR;
-  res->tm_min = (int) (rem / SECSPERMIN);
-  res->tm_sec = (int) (rem % SECSPERMIN);
+  res->tm_min =  (rem / SECSPERMIN);
+  res->tm_sec =  (rem % SECSPERMIN);
 
   /* compute day of week */
   if ((res->tm_wday = ((EPOCH_WDAY + days) % DAYSPERWEEK)) < 0)
@@ -99,3 +87,5 @@ void ICACHE_FLASH_ATTR _localtime(time_t * tim_p, struct tm * res)
   res->tm_isdst = 0;
   return;
 }
+
+#endif

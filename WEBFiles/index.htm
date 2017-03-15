@@ -1,30 +1,74 @@
 <!DOCTYPE html>
 <html><head>
 	<meta http-equiv="Content-type" content="text/html; charset=utf-8">
-	<title>Power Meter</title>
+	<title>Счетчик электроэнергии</title>
 	<link rel="stylesheet" href="/style.css">
-</head><body>
+	<script src="/site.js"></script>
+</head><body onload="CreateTable()">
 ~inc:menumain.inc~
 <div class="content">
-<h2 class="title"><span id="TotalKWT">?</span> kWt*h</h2>
 <p class="center">
-<span id="Str_T1_T2"></span>
-<span id="time__~TotalCntTime~_1">?</span>
-<br>
-<br>
-Last minute: <span id="last_kwt">?</span> kWt*h
+<table id="power" class="mdbtab">
+	<tr><th width="20%"><span id="time_power"></span></th><th width="20%">Фаза 1</th><th width="20%">Фаза 2</th><th width="20%">Фаза 3</th><th width="20%">Итого</th></tr>
+	<tr align="right"><th align="left">Мощность, Вт</th><th></th><th></th><th></th><th></th></tr>
+	<tr align="right"><th align="left">Мощность, ВА</th><th></th><th></th><th></th><th></th></tr>
+	<tr align="right"><th align="left">Коэф. мощности</th><th></th><th></th><th></th><th></th></tr>
+	<tr align="right"><th align="left">Ток, А</th><th></th><th></th><th></th><th></th></tr>
+	<tr align="right"><th align="left">Напряжение, В</th><th></th><th></th><th></th><th></th></tr>
+	<tr height="1"></tr>
+	<tr><th align="left" colspan="5">Энергия, кВт*ч:</th></tr>
+	<tr align="right"><th align="left">T1 (День)</th><th></th><th></th><th></th><th></th></tr>
+	<tr align="right"><th align="left">T2 (Ночь)</th><th></th><th></th><th></th><th></th></tr>
+	<tr align="right"><th align="left">Все</th><th></th><th></th><th></th><th></th></tr>
+</table>
+<table id="power_arch" class="mdbtab">
+	<tr><th width="20%">Архив, кВт*ч</th><th width="20%">T1 (День)</th><th width="20%">T2 (Ночь)</th><th width="20%">Итого</th></tr>
+	<tr align="right"><th align="left">Сегодня</th><th></th><th></th><th></th></tr>
+	<tr align="right"><th align="left">Вчера</th><th></th><th></th><th></th></tr>
+	<tr align="right"><th align="left">Этот месяц</th><th></th><th></th><th></th></tr>
+	<tr align="right"><th align="left">Предыдущий месяц</th><th></th><th></th><th></th></tr>
+	<tr align="right"><th align="left">Этот год</th><th></th><th></th><th></th></tr>
+	<tr align="right"><th align="left">Предыдущий год</th><th></th><th></th><th></th></tr>
+</table>
 </p>
-<br><br>
-Time: <span id="time__~sntp_time~_2">No SNTP</span><br>
-Start time: <span id="timer_~sys_mactime~_3">?</span><br>
-Power: <span title="Vdd" id="syspower">?</span> V<br>
+Точное время: <span id="time_sntp">~sntp_time~</span>&nbsp;(~sntp_status~)<br>
+Время включения: <span id="timerst">~sys_mactime~</span><br>
+Питание: <span title="Vdd" id="syspower">?</span> В<br>
 </div>
 ~inc:footer.inc~
 ~inc:vdd.inc~
 ~inc:time.inc~
 <script type="text/javascript">
-document.getElementById('TotalKWT').innerHTML = (~TotalCnt~ / ~cfg_meter_PulsesPerKWt~).toFixed(3);
-if("~cfg_meter_T1St~" != 0 || "~cfg_meter_T1En~" != 0) document.getElementById('Str_T1_T2').innerHTML = "Day: " + (~TotalCntT1~ / ~cfg_meter_PulsesPerKWt~).toFixed(3) + " &nbsp; Night: " + (~TotalCntT2~ / ~cfg_meter_PulsesPerKWt~).toFixed(3) + "<br><br>";
-document.getElementById('last_kwt').innerHTML = (~LastCnt~ * 60 / ~cfg_meter_PulsesPerKWt~).toFixed(2);
+function CreateTable() {
+	newAJAXCommand('power.xml', updateStatus, true);
+}
+function fill_table(row, fld, cells, div) {
+	for(i = 1; i <= cells; i++){
+		row.cells[i].innerHTML = (getXMLValue(fld[0], 'e'+i) / div).toFixed(3);
+	}
+}
+function updateStatus(xmlData) {
+	if(!xmlData) return;
+	document.getElementById('time_power').innerHTML = getXMLValue(xmlData, 'time');
+	document.getElementById('time_sntp').innerHTML = getXMLValue(xmlData, 'time_sntp');
+	fill_table(document.all.power.rows[1], xmlData.getElementsByTagName('P'), 4, 100);
+	fill_table(document.all.power.rows[2], xmlData.getElementsByTagName('S'), 4, 100);
+	fill_table(document.all.power.rows[3], xmlData.getElementsByTagName('pf'), 4, 1000);
+	fill_table(document.all.power.rows[4], xmlData.getElementsByTagName('cur'), 4, 1000);
+	fill_table(document.all.power.rows[5], xmlData.getElementsByTagName('volt'), 3, 100);
+	fill_table(document.all.power.rows[8], xmlData.getElementsByTagName('en_t1'), 4, 1000);
+	fill_table(document.all.power.rows[9], xmlData.getElementsByTagName('en_t2'), 4, 1000);
+	fill_table(document.all.power.rows[10], xmlData.getElementsByTagName('en'), 4, 1000);
+
+	fill_table(document.all.power_arch.rows[1], xmlData.getElementsByTagName('day'), 3, 1000);
+	fill_table(document.all.power_arch.rows[2], xmlData.getElementsByTagName('Yday'), 3, 1000);
+	fill_table(document.all.power_arch.rows[3], xmlData.getElementsByTagName('Mon'), 3, 1000);
+	fill_table(document.all.power_arch.rows[4], xmlData.getElementsByTagName('PMon'), 3, 1000);
+	fill_table(document.all.power_arch.rows[5], xmlData.getElementsByTagName('Year'), 3, 1000);
+	fill_table(document.all.power_arch.rows[6], xmlData.getElementsByTagName('PYear'), 3, 1000);
+
+	updTime();
+	nextimeout = ~cfg_glo_refresh_t~;
+}
 </script>
 </body></html>

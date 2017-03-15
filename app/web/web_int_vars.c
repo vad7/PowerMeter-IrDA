@@ -5,6 +5,8 @@
 
 #include "user_config.h"
 #ifdef USE_WEB
+#include "c_types.h"
+#ifndef BUILD_FOR_OTA_512k
 #include "bios.h"
 #include "sdk/add_func.h"
 #include "hw/esp8266.h"
@@ -31,9 +33,10 @@
 #include "web_iohw.h"
 #include "wifi_events.h"
 #include "webfs.h"
+#include "driver/eeprom.h"
 #include "power_meter.h"
 #include "iot_cloud.h"
-#include "driver/eeprom.h"
+#include "mercury.h"
 
 #ifdef USE_NETBIOS
 #include "netbios.h"
@@ -333,28 +336,45 @@ void ICACHE_FLASH_ATTR web_int_vars(TCP_SERV_CONN *ts_conn, uint8 *pcmd, uint8 *
 			system_set_os_print(val);
 			update_mux_txd1();
 		}
-		else ifcmp("meter_") {	// cfg_
-			cstr+=6;
+		else ifcmp("glo_") { // cfg_
+			cstr+=4;
 			ifcmp("TotalCnt") {
-				cstr+=8;
-				ifcmp("T1") fram_store.TotalCntT1 = val;
-				else fram_store.TotalCnt = val;
-				eeprom_write_block(0, (uint8 *)&fram_store, sizeof(fram_store));
+				fram_store.ByMin.TotalCnt = val;
+				goto xfram_save;
 			}
-			else ifcmp("PulsesPerKWt") cfg_glo.PulsesPer0_01KWt = val / 100;
+			else ifcmp("LastDay") {
+				fram_store.LastDay = val;
+xfram_save:		eeprom_write_block(0, (uint8 *)&fram_store, sizeof(fram_store));
+			}
 			else ifcmp("Fram_Size") cfg_glo.Fram_Size = val;
+			//else ifcmp("PulsesPerKWt") cfg_glo.PulsesPer0_01KWt = val / 100;
+			else ifcmp("csv_delim_td") cfg_glo.csv_delimiter_total_dec = pvar[0];
+			else ifcmp("csv_delim_t") cfg_glo.csv_delimiter_total = pvar[0];
+			else ifcmp("csv_delimd") cfg_glo.csv_delimiter_dec = pvar[0];
 			else ifcmp("csv_delim") cfg_glo.csv_delimiter = pvar[0];
 			else ifcmp("FramFr") cfg_glo.fram_freq = val;
-			else ifcmp("Debouncing") cfg_glo.Debouncing_Timeout = val;
-			else ifcmp("revsens") cfg_glo.ReverseSensorPulse = val;
 			else ifcmp("TAdj") cfg_glo.TimeAdjust = sntp_time_adjust = val;
 			else ifcmp("T1St") cfg_glo.TimeT1Start = val;
 			else ifcmp("T1En") cfg_glo.TimeT1End = val;
-			else ifcmp("reset_data") {
-				if(os_strcmp(pvar, "RESET") == 0) power_meter_clear_all_data();
+			else ifcmp("refresh_t") cfg_glo.page_refresh_time = val;
+			else ifcmp("req_period") cfg_glo.request_period = val;
+			else ifcmp("time_maxmism") cfg_glo.TimeMaxMismatch = val;
+			else ifcmp("pwmt_tout") cfg_glo.pwmt_response_timeout = val;
+	        else ifcmp("pwmt_rtout") cfg_glo.pwmt_read_timeout = val;
+	        else ifcmp("pwmt_derr") cfg_glo.pwmt_delay_after_err = val;
+			else ifcmp("pass") {
+	        	uint8 i = atoi(cstr + 4) - 1;
+	        	if(i <= 1) str_array_hex_byte(pvar, cfg_glo.Pass[i], sizeof(cfg_glo.Pass[0]));
+			}
+			else ifcmp("reset_data") { // all='RESET', mask='RESETn', n = 1|2|4
+				if(os_strcmp(pvar, "RESET") == 0) power_meter_clear_all_data(pvar[5] >= '0' ? ahextoul(pvar + 5) : 0xFF);
 			}
 			else ifcmp("save") {
-				if(val == 1) write_power_meter_cfg();
+				if(val == 1) {
+					write_power_meter_cfg();
+					irda_init();
+					pwmt_connect(1);
+				}
 			}
 		}
         else ifcmp("iot_") {	// cfg_
@@ -391,13 +411,16 @@ void ICACHE_FLASH_ATTR web_int_vars(TCP_SERV_CONN *ts_conn, uint8 *pcmd, uint8 *
 		}
 #endif
 #ifdef USE_SNTP
-		else ifcmp("sntp") {
+		else ifcmp("sntp") { // cfg_
 			cstr += 4;
 			ifcmp("_time") sntp_set_time(val);
 			else {
-				syscfg.cfg.b.sntp_ena = (val)? 1 : 0;
-				if(syscfg.cfg.b.sntp_ena) sntp_inits(UTC_OFFSET);
-				else sntp_close();
+				uint8 fl = val ? 1 : 0;
+				if(fl != syscfg.cfg.b.sntp_ena) {
+					syscfg.cfg.b.sntp_ena = fl;
+					if(syscfg.cfg.b.sntp_ena) sntp_inits(UTC_OFFSET);
+					else sntp_close();
+				}
 			}
 		}
 #endif
@@ -414,8 +437,8 @@ void ICACHE_FLASH_ATTR web_int_vars(TCP_SERV_CONN *ts_conn, uint8 *pcmd, uint8 *
 		// sys_write_cfg();
 	}
 	else ifcmp("ChartMaxDays") Web_ChartMaxDays = val;
-	else ifcmp("ShowByKWT") Web_ShowByKWT = val;
 	else ifcmp("ShowBy") Web_ShowBy = val;
+	else ifcmp("Tlog") Web_Tlog = val;
 	else ifcmp("iot_") { // from iot_cloud.ini
 		cstr+=4;
 		uint16 len = os_strlen(pvar) + 1;
@@ -687,6 +710,32 @@ void ICACHE_FLASH_ATTR web_int_vars(TCP_SERV_CONN *ts_conn, uint8 *pcmd, uint8 *
     		};
     	}
     }
+    else ifcmp("command_") {
+    	cstr += 8;
+    	ifcmp("send") {
+    		cstr += 4;
+    		ifcmp("_now") {
+    			if(uart_queue_len < UART_QUEUE_IDX_MAX) {
+					#if DEBUGSOO > 4
+						os_printf(" Command: %d, %u, %u, %u - %s\n", pwmt_command_send_len, pwmt_command_send[0], pwmt_command_send[1], pwmt_command_send[2], pvar);
+					#endif
+    				uart_queue[uart_queue_len].time = 0;
+    				uart_queue[uart_queue_len].receive_var = &pwmt_command_response;
+    				uart_queue[uart_queue_len].type = URT_STR;
+    				uart_queue[uart_queue_len].size = pwmt_command_send_len;
+        			pwmt_prepare_send(pwmt_command_send, pwmt_command_send_len);
+        			if(uart_queue_len == 1) pwmt_send_to_uart();
+    			}
+    		} else {
+    			pwmt_command_send_len = str_array_hex_byte(pvar, pwmt_command_send, sizeof(pwmt_command_send));
+    		}
+    	} else ifcmp("r_arch") {
+    		pwmt_arch.Status = 2;
+    		pwmt_read_archive();
+    	} else ifcmp("Tlog") {
+        	pwmt_read_time_array(Web_Tlog);
+    	}
+    }
     else ifcmp("dbg_") {  // debug to RAM
     	cstr += 4;
     	ifcmp("enable") dbg_set(val, 0);
@@ -802,26 +851,31 @@ void ICACHE_FLASH_ATTR web_int_vars(TCP_SERV_CONN *ts_conn, uint8 *pcmd, uint8 *
 #endif
 #endif
 #ifdef USE_OVERLAY
-		else ifcmp("ovl") {
-			cstr += 3;
-			if(*cstr == 0) {
-				if (ovl_loader(pvar) == 0) {
-					if(CheckSCB(SCB_WEBSOC)) {
-						ovl_call(1);
-					}
-					else {
-						web_conn->web_disc_cb = (web_func_disc_cb)ovl_call; // адрес старта оверлея
-						web_conn->web_disc_par = 1; // параметр функции - инициализация
-					}
+	else ifcmp("ovl") {
+		cstr += 3;
+		if(*cstr == 0) {
+			if (ovl_loader(pvar) == 0) {
+				if(CheckSCB(SCB_WEBSOC)) {
+					ovl_call(1);
+				}
+				else {
+					web_conn->web_disc_cb = (web_func_disc_cb)ovl_call; // адрес старта оверлея
+					web_conn->web_disc_par = 1; // параметр функции - инициализация
 				}
 			}
-			else if(*cstr == '$') {
-    			if(ovl_call != NULL) ovl_call(ahextoul(pvar));
-    		}
-			else if(*cstr == '@') {
-    			if(ovl_call != NULL) ovl_call((int)pvar);
-			}
 		}
+		else if(*cstr == '$') {
+			if(ovl_call != NULL) ovl_call(val);
+		}
+		else if(*cstr == '@') {
+			if(ovl_call != NULL) ovl_call((int)pvar);
+		}
+		else ifcmp("_cfg_") {
+			cstr += 5;
+			ifcmp("ip") cfg_overlay.ip_addr.addr = ipaddr_addr(pvar);
+			else ifcmp("arr") cfg_overlay.array16b[ahextoul(cstr + 3)] = val;
+		}
+	}
 #endif
 #ifdef USE_TIMER0
 	else ifcmp("tinit") {
@@ -844,5 +898,9 @@ void ICACHE_FLASH_ATTR web_int_vars(TCP_SERV_CONN *ts_conn, uint8 *pcmd, uint8 *
     else os_printf(" - none! ");
 #endif
 }
+
+#else
+void ICACHE_FLASH_ATTR web_int_vars(void *ts_conn, uint8 *pcmd, uint8 *pvar) {}
+#endif // BUILD_FOR_OTA_512k
 
 #endif // USE_WEB

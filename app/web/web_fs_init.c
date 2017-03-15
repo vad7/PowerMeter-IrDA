@@ -9,6 +9,7 @@
 #include "hw/esp8266.h"
 #include "tcp_srv_conn.h"
 #include "sdk/rom2ram.h"
+#ifndef BUILD_FOR_OTA_512k
 #include "sdk/app_main.h"
 #include "web_srv_int.h"
 #include "web_utils.h"
@@ -137,5 +138,9 @@ uint8 ICACHE_FLASH_ATTR web_fini(const uint8 * fname)
 	os_free(p);
 	return 0;
 }
+
+#else
+uint8 ICACHE_FLASH_ATTR web_fini(const uint8 * fname) { return 0; }
+#endif
 
 #endif // USE_WEB

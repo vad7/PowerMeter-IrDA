@@ -1,3 +1,12 @@
+var setFormCheckBoxes = function(form) {
+	var inputs = document.getElementsByTagName('input');
+	for(var i=0; i<inputs.length; i++){
+		var fld = inputs[i];
+		if(fld.getAttribute('type') === 'checkbox'){
+			fld.checked = fld.value == '1' ? true : false;
+		}
+	}
+}
 var setFormValues = function(form, cfg) {
 	var name, field;
 	for (name in cfg){

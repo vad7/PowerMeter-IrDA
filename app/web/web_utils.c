@@ -17,6 +17,119 @@
 
 #define mMIN(a, b)  ((a<b)?a:b)
 
+/******************************************************************************
+ * FunctionName : cmpcpystr
+ * Description  : выбирает слово из строки текста с заданными начальным символом
+ *                и конечным терминатором. Терминатор и стартовый символ не копирует, если заданы.
+ * Parameters   : При задании начального символа = '\0' берется любой символ (>' ').
+                  Копирует до символа <' ' или терминатора.
+                  Задается ограничение размера буфера для копируемого слова (с дописыванием в буфер '\0'!).
+ * Returns      : Зависит от значения терминатора, указывает на терминатор в строке,
+                  если терминатор найден.
+                  Если NULL, то начальный или конечный терминатор не найден.
+*******************************************************************************/
+uint8 * ICACHE_FLASH_ATTR cmpcpystr(uint8 *pbuf, uint8 *pstr, uint8 a, uint8 b, uint16 len)
+{
+			if(len == 0) pbuf = NULL;
+    		if(pstr == NULL) {
+              if(pbuf != NULL) *pbuf='\0';
+              return NULL;
+            };
+            uint8 c;
+            do {
+              c = *pstr;
+              if(c < ' ') { // строка кончилась
+                if(pbuf != NULL) *pbuf='\0';
+                return NULL; // id не найден
+              };
+              if((a == '\0')&&(c > ' ')) break; // не задан -> любой символ
+              pstr++;
+              if(c == a) break; // нашли стартовый символ (некопируемый в буфер)
+            }while(1);
+            if(pbuf != NULL) {
+              while(len--) {
+                c = *pstr;
+                if(c == b) { // нашли терминирующий символ (некопируемый в буфер)
+                  *pbuf='\0';
+                  return pstr; // конечный терминатор найден
+                };
+//                if(c <= ' ') { // строка кончилась или пробел
+                if(c < ' ') { // строка кончилась или пробел
+                  *pbuf='\0';
+                  return NULL; // конечный терминатор не найден
+                };
+                pstr++;
+                *pbuf++ = c;
+              };
+              *--pbuf='\0'; // закрыть буфер
+            };
+            do {
+              c = *pstr;
+              if(c == b) return pstr; // нашли терминирующий символ
+//              if(c <= ' ') return NULL; // строка кончилась
+              if(c < ' ') return NULL; // строка кончилась
+              pstr++;
+            }while(1);
+}
+/******************************************************************************
+ * FunctionName : urldecode
+ * decode s[] to d[]
+*******************************************************************************/
+int ICACHE_FLASH_ATTR urldecode(uint8 *d, uint8 *s, uint16 lend, uint16 lens)
+{
+	uint16 ret = 0;
+	if(s != NULL)
+		while ((lens--) && (lend--) && (*s > ' ')) {
+			if ((*s == '%')&&(lens > 1)) {
+				s++;
+				int i = 2;
+				uint8 val = 0;
+				while(i--) {
+					if (*s >= '0' && *s <= '9') {
+						val <<= 4;
+						val |= *s - '0';
+					} else if (*s >= 'A' && *s <= 'F') {
+						val <<= 4;
+						val |= *s - 'A' + 10;
+					} else if (*s >= 'a' && *s <= 'f') {
+						val <<= 4;
+						val |= *s - 'a' + 10;
+					} else
+						break;
+					s++;
+					lens--;
+				};
+				s--;
+				*d++ = val;
+			} else if (*s == '+')
+				*d++ = ' ';
+			else
+				*d++ = *s;
+			ret++;
+			s++;
+		}
+	*d = '\0';
+	return ret;
+}
+//=============================================================================
+// find token in the buffer(len)
+// if found return token position, otherwise - NULL
+uint8* ICACHE_FLASH_ATTR
+web_strnstr(const uint8* buffer, const uint8* token, int len)
+{
+  const uint8* p;
+  int tokenlen = ets_strlen(token);
+  if (tokenlen == 0) {
+    return (uint8 *)buffer;
+  };
+  for (p = buffer; *p && (p + tokenlen <= buffer + len); p++) {
+    if ((*p == *token) && (ets_strncmp(p, token, tokenlen) == 0)) {
+      return (uint8 *)p;
+    };
+  };
+  return NULL;
+}
+
 // if endchar_zero = 0 - end on non-integer char; endchar_zero = 1 - skip non-integer chars until /0
 int ICACHE_FLASH_ATTR atoi_z(const char *s, uint8_t endchar_zero)
 {
@@ -35,6 +148,7 @@ int ICACHE_FLASH_ATTR atoi_z(const char *s, uint8_t endchar_zero)
 	return neg ? n : -n;
 }
 
+#ifndef BUILD_FOR_OTA_512k
 /******************************************************************************
  * copy_align4
  * копирует данные из области кеширования flash и т.д.
@@ -132,60 +246,6 @@ uint32 ICACHE_FLASH_ATTR ahextoul(uint8 *s)
 	return rom_atoi(s);
 }
 /******************************************************************************
- * FunctionName : cmpcpystr
- * Description  : выбирает слово из строки текста с заданными начальным символом
- *                и конечным терминатором. Терминатор и стартовый символ не копирует, если заданы.
- * Parameters   : При задании начального символа = '\0' берется любой символ (>' ').
-                  Копирует до символа <' ' или терминатора.
-                  Задается ограничение размера буфера для копируемого слова (с дописыванием в буфер '\0'!).
- * Returns      : Зависит от значения терминатора, указывает на терминатор в строке,
-                  если терминатор найден.
-                  Если NULL, то начальный или конечный терминатор не найден.
-*******************************************************************************/
-uint8 * ICACHE_FLASH_ATTR cmpcpystr(uint8 *pbuf, uint8 *pstr, uint8 a, uint8 b, uint16 len)
-{
-			if(len == 0) pbuf = NULL;
-    		if(pstr == NULL) {
-              if(pbuf != NULL) *pbuf='\0';
-              return NULL;
-            };
-            uint8 c;
-            do {
-              c = *pstr;
-              if(c < ' ') { // строка кончилась
-                if(pbuf != NULL) *pbuf='\0';
-                return NULL; // id не найден
-              };
-              if((a == '\0')&&(c > ' ')) break; // не задан -> любой символ
-              pstr++;
-              if(c == a) break; // нашли стартовый символ (некопируемый в буфер)
-            }while(1);
-            if(pbuf != NULL) {
-              while(len--) {
-                c = *pstr;
-                if(c == b) { // нашли терминирующий символ (некопируемый в буфер)
-                  *pbuf='\0';
-                  return pstr; // конечный терминатор найден
-                };
-//                if(c <= ' ') { // строка кончилась или пробел
-                if(c < ' ') { // строка кончилась или пробел
-                  *pbuf='\0';
-                  return NULL; // конечный терминатор не найден
-                };
-                pstr++;
-                *pbuf++ = c;
-              };
-              *--pbuf='\0'; // закрыть буфер
-            };
-            do {
-              c = *pstr;
-              if(c == b) return pstr; // нашли терминирующий символ
-//              if(c <= ' ') return NULL; // строка кончилась
-              if(c < ' ') return NULL; // строка кончилась
-              pstr++;
-            }while(1);
-}
-/******************************************************************************
  * FunctionName : str_array
  * Набирает из строки s массив слов в buf в кол-ве до max_buf
  * возврат - кол-во переменных в строке
@@ -220,6 +280,8 @@ uint32 ICACHE_FLASH_ATTR str_array(uint8 *s, uint32 *buf, uint32 max_buf)
 	}
 	return ret;
 }
+
+// s string "n,n,..." to word array buf
 uint32 ICACHE_FLASH_ATTR str_array_w(uint8 *s, uint16 *buf, uint32 max_buf)
 {
 	uint32 ret = 0;
@@ -245,6 +307,8 @@ uint32 ICACHE_FLASH_ATTR str_array_w(uint8 *s, uint16 *buf, uint32 max_buf)
 	}
 	return ret;
 }
+
+// s string "n,n,...n." to byte array buf. last char = ',' or '.' or <= ')'
 uint32 ICACHE_FLASH_ATTR str_array_b(uint8 *s, uint8 *buf, uint32 max_buf)
 {
 	uint32 ret = 0;
@@ -270,6 +334,18 @@ uint32 ICACHE_FLASH_ATTR str_array_b(uint8 *s, uint8 *buf, uint32 max_buf)
 	}
 	return ret;
 }
+
+// convert hex z_string: "00 00 00...<0>" to byte array
+uint32 ICACHE_FLASH_ATTR str_array_hex_byte(uint8 *s, uint8 *buf, uint32 buf_size)
+{
+	uint16 i = 0;
+	uint8 *smax = s + os_strlen(s);
+	while(buf_size--) {
+		buf[i++] = hextoul(s);
+		if((s += 3) >= smax) break;
+	}
+	return i;
+}
 /******************************************************************************
  * FunctionName : strtmac
 *******************************************************************************/
@@ -285,46 +361,6 @@ void ICACHE_FLASH_ATTR strtomac(uint8 *s, uint8 *macaddr)
 	}
 	s = cmpcpystr(pbuf, s, ':', ' ', 3);
 	*macaddr++ = hextoul(pbuf);
-}
-/******************************************************************************
- * FunctionName : urldecode
- * decode s[] to d[]
-*******************************************************************************/
-int ICACHE_FLASH_ATTR urldecode(uint8 *d, uint8 *s, uint16 lend, uint16 lens)
-{
-	uint16 ret = 0;
-	if(s != NULL)
-		while ((lens--) && (lend--) && (*s > ' ')) {
-			if ((*s == '%')&&(lens > 1)) {
-				s++;
-				int i = 2;
-				uint8 val = 0;
-				while(i--) {
-					if (*s >= '0' && *s <= '9') {
-						val <<= 4;
-						val |= *s - '0';
-					} else if (*s >= 'A' && *s <= 'F') {
-						val <<= 4;
-						val |= *s - 'A' + 10;
-					} else if (*s >= 'a' && *s <= 'f') {
-						val <<= 4;
-						val |= *s - 'a' + 10;
-					} else
-						break;
-					s++;
-					lens--;
-				};
-				s--;
-				*d++ = val;
-			} else if (*s == '+')
-				*d++ = ' ';
-			else
-				*d++ = *s;
-			ret++;
-			s++;
-		}
-	*d = '\0';
-	return ret;
 }
 /******************************************************************************
  * FunctionName : urlencode
@@ -434,24 +470,7 @@ int ICACHE_FLASH_ATTR htmlcode(uint8 *d, uint8 *s, uint16 lend, uint16 lens)
 	*d = '\0';
 	return ret;
 }
-//=============================================================================
-// find token in the buffer(len)
-// if found return token position, otherwise - NULL
-uint8* ICACHE_FLASH_ATTR
-web_strnstr(const uint8* buffer, const uint8* token, int len)
-{
-  const uint8* p;
-  int tokenlen = ets_strlen(token);
-  if (tokenlen == 0) {
-    return (uint8 *)buffer;
-  };
-  for (p = buffer; *p && (p + tokenlen <= buffer + len); p++) {
-    if ((*p == *token) && (ets_strncmp(p, token, tokenlen) == 0)) {
-      return (uint8 *)p;
-    };
-  };
-  return NULL;
-}
+
 //=============================================================================
 static const uint8_t base64map[128] ICACHE_RODATA_ATTR =
 {
@@ -654,4 +673,5 @@ int ICACHE_FLASH_ATTR rom_atoi(const char *s)
 	return neg ? n : -n;
 }
 
+#endif
 #endif

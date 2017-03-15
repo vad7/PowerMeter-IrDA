@@ -1,14 +1,15 @@
-<h3 class="top">Power Meter</h3>
+<h3 class="top">Счетчик электроэнергии</h3>
 <div class="menu">
 	<div>
-		<a href="/index.htm">Main</a>
-		<a href="/history.htm">History</a>
-		<a href="/powercnt.htm">Peak chart</a>
-		<a href="/lastkwt.htm">Peak kWt</a>
+		<a href="/index.htm">Главная</a>
+		<a href="/history.htm">История</a>
+		<a href="/historyall.htm">История детально</a>
+		<a href="/lastkwt.htm">График</a>
 	</div>
 	<div>
-		<a href="/protect/setmeter.htm">Setup meter</a>
-		<a href="/settings.htm">Settings</a>
+		<a href="/protect/setmeter.htm">Настройка</a>
+		<a href="/settings.htm">Дополнительно</a>
+		<a href="/timelogs.htm">Логи</a>
 	</div>
 </div>
 <script type="text/javascript">
