@@ -9,8 +9,7 @@
 	<h2 class="title">Firmware or WebFS Image Upload</h2>
 	<p class="center">
 	Select *.bin file...<br><br>
-	<input type='file' name='file'><br><br>
-	<input type='submit' value='Upload' class="button">
+	<input type='file' name='file'>	<input type='submit' value='Upload' class="button">
 	</p>
 </form>
 <div class="content"><p class="center">
@@ -18,6 +17,9 @@ Curent Disk has ~wfs_files~ files, Disk Size: ~wfs_size~ bytes.<br>
 Disk Addres: ~wfs_addr~, Max Disk Size: ~wfs_max_size~ bytes, Max 250 files.<br><br>
 Flash ID: ~sys_fid~, Size: ~sys_fsize~ bytes.<br>
 <a href='/protect/fullflash.bin'>Download fullflash.bin</a><br><br>
+<form method='post' action='/fsupload' enctype='multipart/form-data' class="center">
+Upload sector #<input title='4096 bytes' id='saddr' size='5' onchange='document.getElementsByName("fsec_")[0].name="fsec_"+document.getElementById("saddr").value;'> 
+<input type='file' name='fsec_'> <input type='submit' value='Upload' class="button">
 </p></div>
 ~inc:footer.inc~
 </body></html>

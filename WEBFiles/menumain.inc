@@ -2,7 +2,7 @@
 <div class="menu">
 	<div>
 		<a href="/index.htm">Главная</a>
-		<a href="/history.htm">История</a>
+		<a href="/history.htm">История по дням, часам</a>
 		<a href="/historyall.htm">История детально</a>
 		<a href="/lastkwt.htm">График</a>
 	</div>

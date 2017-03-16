@@ -537,6 +537,7 @@ void ICACHE_FLASH_ATTR web_get_history(TCP_SERV_CONN *ts_conn)
 		tcp_puts("time%cvalue\r\n", hst->delimiter_csv); // csv header
 		if(hst->OutType & HST_TotalCnt) { // TotalCnt
 			hst->Sum = fram_store.ByMin.TotalCnt;
+			web_get_history_put_csv_str(web_conn, hst, hst->LastTime, hst->Sum);
 		}
     } else {
     	hst = (history_output *)web_conn->udata_stop; // restore ptr
@@ -582,7 +583,7 @@ void ICACHE_FLASH_ATTR web_get_history(TCP_SERV_CONN *ts_conn)
 		os_printf("End, mbs=%u,s=%u; %d ", web_conn->msgbuflen, web_conn->msgbufsize, hst->minutes);
 	#endif
 	if(hst->OutType & HST_ByHour) {
-		hst->LastTime = fram_store.ByMin.LastTime / SECSPERDAY * SECSPERDAY + SECSPERDAY - 1;
+		hst->LastTime = fram_store.ByMin.LastTime / SECSPERDAY * SECSPERDAY + SECSPERDAY - SECSPERHOUR;
 		for(hh = 23; hh >= 0; hh--) {
 xContinueByHour:
 			if(web_conn->msgbuflen + 72 > web_conn->msgbufsize) {
@@ -600,7 +601,7 @@ xContinueByHour:
 		hst->LastTime--;
 	}
 	// if TotalCnt/ByDay - print sum, otherwise 0;
-	web_get_history_put_csv_str(web_conn, hst, hst->LastTime, (hst->OutType & (HST_TotalCnt | HST_ByDay)) ? hst->Sum : 0);
+	//web_get_history_put_csv_str(web_conn, hst, hst->LastTime, (hst->OutType & (HST_TotalCnt | HST_ByDay)) ? hst->Sum : 0);
 	ClrSCB(SCB_RETRYCB);
 }
 
@@ -608,7 +609,7 @@ uint32 HistorySums[2];
 #define hst_bydays_flags web_conn->udata_start
 #define hst_bydays_days  web_conn->udata_stop   // current day << 16 + days
 #define hst_bydays_ptr   web_conn->web_disc_par // = start array_ptr
-void ICACHE_FLASH_ATTR web_get_history_bydays_prn(WEB_SRV_CONN *web_conn, uint32 * nums)
+void ICACHE_FLASH_ATTR web_get_history_bydays_prn(WEB_SRV_CONN *web_conn, int32 * nums)
 {
 	char df, dd;
 	if(hst_bydays_flags & HST_TotalCnt) {
@@ -623,7 +624,7 @@ void ICACHE_FLASH_ATTR web_get_history_bydays_prn(WEB_SRV_CONN *web_conn, uint32
 	_localtime(&t, &tm);
 	tcp_puts("%02d.%02d.%04d", tm.tm_mday, 1+tm.tm_mon, 1900+tm.tm_year);
 	int8 i;
-	for(i = 0; i < 2; i++) tcp_puts("%c%u%c%03u", df, nums[i] / 1000, dd, nums[i] % 1000);
+	for(i = 0; i < 2; i++) tcp_puts("%c%d%c%03u", df, nums[i] / 1000, dd, nums[i] % 1000);
 	tcp_puts("\r\n");
 }
 
@@ -1091,6 +1092,7 @@ void ICACHE_FLASH_ATTR web_int_callback(TCP_SERV_CONN *ts_conn, uint8 *cstr)
 			else ifcmp("pwmt_rtout") tcp_puts("%u", cfg_glo.pwmt_read_timeout);
 			else ifcmp("pwmt_tout") tcp_puts("%u", cfg_glo.pwmt_response_timeout);
 			else ifcmp("pwmt_derr") tcp_puts("%u", cfg_glo.pwmt_delay_after_err);
+			else ifcmp("pwmt_addr") tcp_puts("0x%02X", cfg_glo.pwmt_address);
 			else ifcmp("pass") {
 				uint8 i = atoi(cstr + 4) - 1;
 				if(i <= 1) web_int_callback_print_hexarray(web_conn, cfg_glo.Pass[i], sizeof(cfg_glo.Pass[0]));
@@ -1562,7 +1564,6 @@ void ICACHE_FLASH_ATTR web_int_callback(TCP_SERV_CONN *ts_conn, uint8 *cstr)
 	}
 	else ifcmp("PtrCurrDay") tcp_puts("%u", fram_store.PtrCurrentByDay);
 	else ifcmp("PtrCurr") tcp_puts("%u", fram_store.ByMin.PtrCurrent);
-	else ifcmp("PrevTW") tcp_puts("%u", fram_store.ByMin.PreviousTotalW);
 	else ifcmp("St_LD") tcp_puts("%u", fram_store.LastDay);
 	else ifcmp("St_LT1") tcp_puts("%u", fram_store.LastTotal_T1);
 	else ifcmp("St_LT") tcp_puts("%u", fram_store.LastTotal);
@@ -1584,7 +1585,6 @@ void ICACHE_FLASH_ATTR web_int_callback(TCP_SERV_CONN *ts_conn, uint8 *cstr)
 		else ifcmp("last_resp") tcp_puts("%u", pwmt_last_response);
 		else ifcmp("qlen") tcp_puts("%u", uart_queue_len);
 		else ifcmp("errs") tcp_puts("%u", pwmt_read_errors);
-		else ifcmp("power") tcp_puts("%u", pwmt_cur.P[0] + pwmt_cur.P[1] + pwmt_cur.P[2]);
 		else ifcmp("arch_") {
 			cstr += 5;
 			ifcmp("Td1") tcp_puts("%u", pwmt_arch.Today_T1);

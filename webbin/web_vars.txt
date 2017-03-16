@@ -39,7 +39,7 @@ inc:time.inc
 cfg_glo_refresh_t
 inc:grfx1.inc
 inc:grfx2.inc
-PWMT_power
+PWMT_P0
 gpio1_inp
 gpio1_out
 gpio1_dir
@@ -53,7 +53,6 @@ inc:grfx2.inc
 PowerCnt
 inc:menu.inc
 TotalKWT
-PrevTW
 TotalCnt
 PowerCnt
 LastCnt

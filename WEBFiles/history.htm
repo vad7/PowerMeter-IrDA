@@ -2,8 +2,19 @@
 <html><head>
 	<meta http-equiv="Content-type" content="text/html; charset=utf-8">
 	<title>История</title>
-	<link rel="stylesheet" href="style.css">
-	<script type="text/javascript" src="http://d3js.org/d3.v3.js"></script>
+<link rel="stylesheet" href="style.css">
+<style>
+svg {
+	font: 9px sans-serif;
+}
+.axis path,
+.axis line {
+	fill: none;
+	stroke: #000;
+	shape-rendering: crispEdges;
+}
+</style>
+<script type="text/javascript" src="http://d3js.org/d3.v3.js"></script>
 </head>
 <body>
 ~inc:menumain.inc~
@@ -22,7 +33,7 @@
  <input type="submit" value="Обновить" onClick="updCookie('ChartMaxDays');updCookie('ShowBy');" class="button">
  </form>
  <br>
-Скачать: <a href="history.csv">History.csv</a> &nbsp;&nbsp; <a href="historycnt.csv">Итого</a> &nbsp;&nbsp; 
+Скачать csv: <a href="history.csv">график</a>,&nbsp; <a href="historycnt.csv">итого</a> &nbsp;&nbsp;
 Обновлено: <span id="timecnt">~TotalCntTime~</span><br>
 </div>
 ~inc:footer.inc~
@@ -36,8 +47,8 @@
 <script>
 var nLayers = 2;
 
-var margin = {top: 45, right: 10, bottom: 80, left: 60},
-	width = 640 - margin.left - margin.right,
+var margin = {top: 45, right: 10, bottom: 80, left: 50},
+	width = 630 - margin.left - margin.right,
 	height = 400 - margin.top - margin.bottom;
 
 var svg = d3.select("#chart-svg").append("svg")
@@ -75,13 +86,11 @@ d3.csv("history.csv", function (data){
 	  
 	var xAxis = d3.svg.axis()
 		.scale(xScale)
-		.tickSize(1)
 		.tickPadding(6)
 		.orient("bottom");
 
 	var yAxis = d3.svg.axis()
 		.scale(y)
-		.tickSize(1)
 		.orient("left");
 
 	var layer = svg.selectAll(".layer")
@@ -145,12 +154,10 @@ d3.csv("history.csv", function (data){
 			  .text(function(d) { return d;  });
 	}
 
-	d3.selectAll("input").on("change", change);
+	d3.selectAll("input[name='mode']").on("change", change);
 
-//	var timeout = setTimeout(function() {
-//	  d3.select("input[value=\"grouped\"]").property("checked", true).each(change);
-//	}, 2000);
-	d3.select("input[value=\"stacked\"]").property("checked", true);
+//	var timeout = setTimeout(function() { d3.select("input[value='grouped']").property("checked", true).each(change); }, 2000);
+	d3.select("input[value='stacked']").property("checked", true);
 
 	function change() {
 	  //clearTimeout(timeout);

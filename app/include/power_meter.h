@@ -50,7 +50,6 @@ typedef struct {
 		uint32 TotalCnt;	// saved value
 		uint32 PtrCurrent;	// ArrayOfCntsElement size array
 		time_t LastTime;
-		uint32 PreviousTotalW;  // w*h
 	} ByMin;
 	uint32 LastTotal;		// 0.000 kwt*h
 	uint32 LastTotal_T1;	// 0.000 kwt*h
@@ -60,7 +59,7 @@ typedef struct {
 FRAM_STORE __attribute__((aligned(4))) fram_store;
 #define ArrayByDayStart		STORE_FLASH_ADDR // sector rounded, array[2] of (NewTotal-LastTotal), kwt*h
 #define ArrayByDaySize		65536 // 8192 days
-typedef uint32 ArrayByDayElement[2]; // 8 bytes { uint32 delta TAll; uint32 delta T1 }
+typedef int32 ArrayByDayElement[2]; // 8 bytes { uint32 delta TAll; uint32 delta T1 }
 #define ArrayOfCntsStart	(((ArrayByDayStart + ArrayByDaySize) + (flashchip_sector_size - 1)) & ~(flashchip_sector_size - 1)) // until end of flash
 uint32  ArrayOfCntsSize;
 #define ArrayOfCntsElement	2 // uint16

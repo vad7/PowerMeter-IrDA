@@ -65,7 +65,7 @@ void ICACHE_FLASH_ATTR update_cnts(time_t time) // 1 minute passed
 		}
 		fram_store.ByMin.PowerCnt -= pcnt;
 		#if DEBUGSOO > 2
-			os_printf("NPCur: %u\n", pcnt);
+			os_printf("NPCur: %u ", pcnt);
 		#endif
 	}
 	uint32 addr = ArrayOfCntsStart + fram_store.ByMin.PtrCurrent;
@@ -87,6 +87,9 @@ void ICACHE_FLASH_ATTR update_cnts(time_t time) // 1 minute passed
 	fram_store.ByMin.TotalCnt += pcnt;
 	fram_store.ByMin.LastTime += TIME_STEP_SEC;  // seconds
 	LastCnt = pcnt;
+	#if DEBUGSOO > 2
+		os_printf("NPCur: +%u = %u, %u", pcnt, fram_store.ByMin.TotalCnt, fram_store.ByMin.LastTime);
+	#endif
 }
 
 void ICACHE_FLASH_ATTR update_cnt_timer_func(void) // repeat every 1 sec
@@ -99,7 +102,7 @@ void ICACHE_FLASH_ATTR update_cnt_timer_func(void) // repeat every 1 sec
 		#endif
 		wifi_station_connect();
 	}
-	#if DEBUGSOO > 4
+	#if DEBUGSOO > 3
 		os_printf("Start %u\n", system_get_time());
 	#endif
 	if(FRAM_Status) {
@@ -114,11 +117,12 @@ void ICACHE_FLASH_ATTR update_cnt_timer_func(void) // repeat every 1 sec
 		}
 	}
 	uint32 total = pwmt_cur.Total[0] + pwmt_cur.Total[1] + pwmt_cur.Total[2];
-	uint32 pulses = (total - fram_store.ByMin.PreviousTotalW); // * cfg_glo.PulsesPer0_01KWt / 10;
+	uint32 pulses = (total - fram_store.ByMin.TotalCnt); // * cfg_glo.PulsesPer0_01KWt / 10;
 	fram_store.ByMin.PowerCnt += pulses;
-	fram_store.ByMin.PreviousTotalW += pulses; // * 10 / cfg_glo.PulsesPer0_01KWt;
-	#if DEBUGSOO > 4
-		os_printf("New cnt: %u (+%u); PCnt=%u, TCnt=%u, PCur=%u, PTW=%u, LT=%u(%u)\n", fram_store.ByMin.PowerCnt, pulses, fram_store.ByMin.PowerCnt, fram_store.ByMin.TotalCnt, fram_store.ByMin.PtrCurrent, fram_store.ByMin.PreviousTotalW, fram_store.ByMin.LastTime, pwmt_cur.Time);
+	//fram_store.ByMin.PreviousTotalW += pulses; // * 10 / cfg_glo.PulsesPer0_01KWt;
+	#if DEBUGSOO > 3
+		os_printf("New cnt: %u; TCnt=%u, PCur=%u, LT:%u-%u=%u\n", fram_store.ByMin.PowerCnt, fram_store.ByMin.TotalCnt, fram_store.ByMin.PtrCurrent, pwmt_cur.Time, fram_store.ByMin.LastTime, pwmt_cur.Time - fram_store.ByMin.LastTime);
+		os_printf(" Total: %u", total);
 		os_printf("ByDay: PCur=%u, LDay=%u\n", fram_store.PtrCurrentByDay, fram_store.LastDay);
 	#endif
 	uint16 maxloop = 400;

@@ -362,6 +362,7 @@ xfram_save:		eeprom_write_block(0, (uint8 *)&fram_store, sizeof(fram_store));
 			else ifcmp("pwmt_tout") cfg_glo.pwmt_response_timeout = val;
 	        else ifcmp("pwmt_rtout") cfg_glo.pwmt_read_timeout = val;
 	        else ifcmp("pwmt_derr") cfg_glo.pwmt_delay_after_err = val;
+	        else ifcmp("pwmt_addr") cfg_glo.pwmt_address = val;
 			else ifcmp("pass") {
 	        	uint8 i = atoi(cstr + 4) - 1;
 	        	if(i <= 1) str_array_hex_byte(pvar, cfg_glo.Pass[i], sizeof(cfg_glo.Pass[0]));

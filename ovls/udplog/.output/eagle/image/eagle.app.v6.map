@@ -60,27 +60,26 @@ END GROUP
  *(.jcr)
                 0x3fffdf60                _data_end = ABSOLUTE (.)
 
-.rodata         0x3fffdf60      0x38c
+.rodata         0x3fffdf60      0x2f0
                 0x3fffdf60                _rodata_start = ABSOLUTE (.)
  *(.rodata)
  .rodata        0x3fffdf60       0x44 main/.output/eagle/lib/libmain.a(udp_debug_log.o)
                 0x3fffdf78                tcp_state_str
  *(.rodata.*)
  .rodata.str1.1
-                0x3fffdfa4      0x347 main/.output/eagle/lib/libmain.a(udp_debug_log.o)
+                0x3fffdfa4      0x2ac main/.output/eagle/lib/libmain.a(udp_debug_log.o)
  *(.gnu.linkonce.r.*)
  *(.rodata1)
  *(.dynamic)
  *(.gnu.version_d)
-                0x3fffe2ec                . = ALIGN (0x4)
- *fill*         0x3fffe2eb        0x1 
-                0x3fffe2ec                _bss_table_start = ABSOLUTE (.)
-                0x3fffe2ec                _bss_table_end = ABSOLUTE (.)
-                0x3fffe2ec                _rodata_end = ABSOLUTE (.)
+                0x3fffe250                . = ALIGN (0x4)
+                0x3fffe250                _bss_table_start = ABSOLUTE (.)
+                0x3fffe250                _bss_table_end = ABSOLUTE (.)
+                0x3fffe250                _rodata_end = ABSOLUTE (.)
 
-.bss            0x3fffe2f0       0x10
-                0x3fffe2f0                . = ALIGN (0x8)
-                0x3fffe2f0                _bss_start = ABSOLUTE (.)
+.bss            0x3fffe250       0x10
+                0x3fffe250                . = ALIGN (0x8)
+                0x3fffe250                _bss_start = ABSOLUTE (.)
  *(.dynsbss)
  *(.sbss)
  *(.sbss.*)
@@ -91,57 +90,57 @@ END GROUP
  *(.gnu.linkonce.sb2.*)
  *(.dynbss)
  *(.bss)
- .bss           0x3fffe2f0        0x0 main/.output/eagle/lib/libmain.a(udp_debug_log.o)
+ .bss           0x3fffe250        0x0 main/.output/eagle/lib/libmain.a(udp_debug_log.o)
  *(.bss.*)
  *(.gnu.linkonce.b.*)
  *(COMMON)
- COMMON         0x3fffe2f0        0xe main/.output/eagle/lib/libmain.a(udp_debug_log.o)
-                0x3fffe2f0                udpbufsize
-                0x3fffe2f4                drv_host_ip
-                0x3fffe2f8                drv_init_usr
-                0x3fffe2fa                drv_host_port
-                0x3fffe2fc                drv_error
-                0x3fffe300                . = ALIGN (0x8)
- *fill*         0x3fffe2fe        0x2 
-                0x3fffe300                _bss_end = ABSOLUTE (.)
-                0x3fffe300                _heap_start = ABSOLUTE (.)
+ COMMON         0x3fffe250        0xe main/.output/eagle/lib/libmain.a(udp_debug_log.o)
+                0x3fffe250                udpbufsize
+                0x3fffe254                drv_host_ip
+                0x3fffe258                drv_init_usr
+                0x3fffe25a                drv_host_port
+                0x3fffe25c                drv_error
+                0x3fffe260                . = ALIGN (0x8)
+ *fill*         0x3fffe25e        0x2 
+                0x3fffe260                _bss_end = ABSOLUTE (.)
+                0x3fffe260                _heap_start = ABSOLUTE (.)
 
-.text           0x40106600      0x7b4
+.text           0x40106600      0x734
                 0x40106600                _stext = .
                 0x40106600                _text_start = ABSOLUTE (.)
  *(.entry.text)
  *(.init.literal)
  *(.init)
  *(.literal .text .literal.* .text.* .stub .gnu.warning .gnu.linkonce.literal.* .gnu.linkonce.t.*.literal .gnu.linkonce.t.*)
- .text          0x40106600      0x792 main/.output/eagle/lib/libmain.a(udp_debug_log.o)
-                                0x852 (size before relaxing)
-                0x4010662c                send_buf
-                0x40106b24                puts_buf
-                0x40106b98                init_udp_drv
-                0x40106c20                close_udp_drv
-                0x40106c88                ovl_init
- *fill*         0x40106d92        0x2 
- .literal       0x40106d94        0x0 main/.output/eagle/lib/libmain.a(udp_debug_log.o)
+ .text          0x40106600      0x713 main/.output/eagle/lib/libmain.a(udp_debug_log.o)
+                                0x7b7 (size before relaxing)
+                0x40106624                send_buf
+                0x40106af8                puts_buf
+                0x40106b64                init_udp_drv
+                0x40106bd8                close_udp_drv
+                0x40106c30                ovl_init
+ *fill*         0x40106d13        0x1 
+ .literal       0x40106d14        0x0 main/.output/eagle/lib/libmain.a(udp_debug_log.o)
  *(.fini.literal)
  *(.fini)
  *(.gnu.version)
  *(.iram.data)
- *fill*         0x40106d94        0x0 
- .iram.data     0x40106d94       0x20 main/.output/eagle/lib/libmain.a(udp_debug_log.o)
-                0x40106d94                pcb_udp_drv
-                0x40106d98                test_timer
-                0x40106dac                drv_init_flg
-                0x40106db0                udpbuf
-                0x40106db4                . = ALIGN (0x4)
-                0x40106db4                _text_end = ABSOLUTE (.)
-                0x40106db4                _etext = .
+ *fill*         0x40106d14        0x0 
+ .iram.data     0x40106d14       0x20 main/.output/eagle/lib/libmain.a(udp_debug_log.o)
+                0x40106d14                pcb_udp_drv
+                0x40106d18                test_timer
+                0x40106d2c                drv_init_flg
+                0x40106d30                udpbuf
+                0x40106d34                . = ALIGN (0x4)
+                0x40106d34                _text_end = ABSOLUTE (.)
+                0x40106d34                _etext = .
 
-.lit4           0x40106db4        0x0
-                0x40106db4                _lit4_start = ABSOLUTE (.)
+.lit4           0x40106d34        0x0
+                0x40106d34                _lit4_start = ABSOLUTE (.)
  *(*.lit4)
  *(.lit4.*)
  *(.gnu.linkonce.lit4.*)
-                0x40106db4                _lit4_end = ABSOLUTE (.)
+                0x40106d34                _lit4_end = ABSOLUTE (.)
 
 .irom0.text     0x40210000        0x0
                 0x40210000                _irom0_text_start = ABSOLUTE (.)

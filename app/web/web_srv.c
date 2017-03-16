@@ -240,7 +240,7 @@ const char HTTPfserror[] ICACHE_RODATA_ATTR = "<html><h3>Web-disk error. Use <a 
 #else
 const char HTTPfserror[] ICACHE_RODATA_ATTR = "<html><h3>OTA 2 step. Use <a href='/fsupload'>fsupload</a></h3></html>";
 #endif
-const char HTTPAccessControlAllowOrigin[] ICACHE_RODATA_ATTR = "Access-Control-Allow-Origin: *\r\n";
+//const char HTTPAccessControlAllowOrigin[] ICACHE_RODATA_ATTR = "Access-Control-Allow-Origin: *\r\n";
 //        const uint8 *HTTPCacheControl = "Cache-Control:";
 const char *HTTPContentLength = "Content-Length:";
 #define sizeHTTPContentLength 15
@@ -778,7 +778,7 @@ LOCAL bool ICACHE_FLASH_ATTR webserver_open_file(HTTP_CONN *CurHTTP, TCP_SERV_CO
 		if(CurHTTP->pFilename[1] == '\0') {
 			if(isWEBFSLocked) {
 				web_inc_fp(web_conn, WEBFS_NODISK_HANDLE); // желательно дописать ответ, что нет диска.
-				web_conn->content_len = sizeof(HTTPfserror);
+				web_conn->content_len = sizeof(HTTPfserror)-1;
 				CurHTTP->fileType = HTTP_HTML;
 #if DEBUGSOO > 5
 				os_printf("of%d[%s] ", web_conn->webfile, CurHTTP->pFilename);
@@ -798,7 +798,7 @@ LOCAL bool ICACHE_FLASH_ATTR webserver_open_file(HTTP_CONN *CurHTTP, TCP_SERV_CO
 			os_memcpy(pstr, &CurHTTP->pFilename[1], MAX_FILE_NAME_SIZE-1);
 			if(rom_xstrcmp(pstr, web_cgi_fname)) {
 				web_inc_fp(web_conn, WEBFS_WEBCGI_HANDLE);
-				web_conn->content_len = sizeof(HTTPdefault);
+				web_conn->content_len = sizeof(HTTPdefault)-1;
 				CurHTTP->fileType = HTTP_HTML;
 #if DEBUGSOO > 5
 				os_printf("of%d[%s] ", web_conn->webfile, CurHTTP->pFilename);
@@ -808,7 +808,7 @@ LOCAL bool ICACHE_FLASH_ATTR webserver_open_file(HTTP_CONN *CurHTTP, TCP_SERV_CO
 			else if(rom_xstrcmp(pstr, fsupload_fname)) {
 				SetSCB(SCB_AUTH);
 				web_inc_fp(web_conn, WEBFS_UPLOAD_HANDLE);
-				web_conn->content_len = sizeof(HTTPfsupload);
+				web_conn->content_len = sizeof(HTTPfsupload)-1;
 				CurHTTP->fileType = HTTP_HTML;
 #if DEBUGSOO > 5
 				os_printf("of%d[%s] ", web_conn->webfile, CurHTTP->pFilename);
@@ -843,20 +843,20 @@ LOCAL bool ICACHE_FLASH_ATTR webserver_open_file(HTTP_CONN *CurHTTP, TCP_SERV_CO
 void ICACHE_FLASH_ATTR web_send_fnohanle(TCP_SERV_CONN *ts_conn) {
 	WEB_SRV_CONN *web_conn = (WEB_SRV_CONN *)ts_conn->linkd;
 	uint32 pdata = 0;
-	uint8 pbuf[mMAX(mMAX(sizeof(HTTPdefault),sizeof(HTTPfserror)), sizeof(HTTPfsupload))];
+	uint8 pbuf[mMAX(mMAX(sizeof(HTTPdefault)-1,sizeof(HTTPfserror)-1), sizeof(HTTPfsupload)-1)];
 	uint32 size = 0;
 	switch(web_conn->webfile) {
 	case WEBFS_WEBCGI_HANDLE:
 		pdata = (uint32)((void *)HTTPdefault);
-		size = sizeof(HTTPdefault);
+		size = sizeof(HTTPdefault)-1;
 		break;
 	case WEBFS_UPLOAD_HANDLE:
 		pdata = (uint32)((void *)HTTPfsupload);
-		size = sizeof(HTTPfsupload);
+		size = sizeof(HTTPfsupload)-1;
 		break;
 	case WEBFS_NODISK_HANDLE:
 		pdata = (uint32)((void *)HTTPfserror);
-		size = sizeof(HTTPfserror);
+		size = sizeof(HTTPfserror)-1;
 		break;
 	}
 	if(pdata != 0 && size != 0) {
@@ -1259,17 +1259,16 @@ typedef enum
 	UPL_ST_EXTMEM = 7 // загрузка во внешнюю EEPROM/FRAM
 } UPLOAD_FILE_STATUS;
 
-const char disk_ok_filename[] ICACHE_RODATA_ATTR = "/disk_ok.htm\0";
-const char disk_err1_filename[] ICACHE_RODATA_ATTR = "/disk_er1.htm\0";
-const char disk_err2_filename[] ICACHE_RODATA_ATTR = "/disk_er2.htm\0";
-const char disk_err3_filename[] ICACHE_RODATA_ATTR = "/disk_er3.htm\0";
+const char disk_ok_filename[] ICACHE_RODATA_ATTR = "/disk_ok.htm";
+const char disk_err1_filename[] ICACHE_RODATA_ATTR = "/disk_er1.htm";
+const char disk_err2_filename[] ICACHE_RODATA_ATTR = "/disk_er2.htm";
+const char disk_err3_filename[] ICACHE_RODATA_ATTR = "/disk_er3.htm";
 const char sysconst_filename[] ICACHE_RODATA_ATTR = "sysconst";
 const char settings_filename[] ICACHE_RODATA_ATTR = "settings";
 #ifdef USE_OVERLAY
 const char overlay_filename[] ICACHE_RODATA_ATTR = "overlay";
 #endif
 const char sector_filename[] ICACHE_RODATA_ATTR = "fsec_";
-#define sector_filename_size 5
 const char file_label[] ICACHE_RODATA_ATTR = "file";
 const char eeprom_filename[] ICACHE_RODATA_ATTR = "eeprom";
 
@@ -1469,9 +1468,9 @@ xfirmware_file_err:				if(isWEBFSLocked) return 400;
 						pupload->status = UPL_ST_FLASH; // = 2 загрузка файла во flash
 						break;
 					}
-					else if(rom_xstrcmp(pupload->name, sector_filename)) {
+					else if(rom_xstrcmp(pupload->name, sector_filename) && pupload->name[sizeof(sector_filename)-1] >= '0') {
 						pupload->fsize = SPI_FLASH_SEC_SIZE;
-						pupload->faddr = ahextoul(&pupload->name[sector_filename_size]) << 12;
+						pupload->faddr = ahextoul(&pupload->name[sizeof(sector_filename)-1]) << 12;
 						pupload->status = UPL_ST_FLASH; // = 2 загрузка файла сектора во flash
 						break;
 					}
@@ -1618,6 +1617,7 @@ xfirmware_file_err:				if(isWEBFSLocked) return 400;
 					} else if(!isWEBFSLocked) { // WebFS OK
 						SetSCB(SCB_REDIR);
 						rom_xstrcpy(pupload->filename, disk_ok_filename); // os_memcpy(pupload->filename,"/disk_ok.htm\0",13);
+						iot_cloud_init();
 					};
 					if(pupload->status == UPL_ST_EXTMEM) { // loaded
 						FRAM_Store_Init();
