@@ -9,6 +9,7 @@
 #include "user_config.h"
 #include "c_types.h"
 #ifndef BUILD_FOR_OTA_512k
+#include "stdlib.h"
 #include "hw/esp8266.h"
 #include "bios.h"
 #include "sdk/add_func.h"
@@ -48,7 +49,7 @@ void ICACHE_FLASH_ATTR update_cnts(time_t time) // 1 minute passed
 		uint16 u16[2];
 	} arrcnt;
 
-	if(time - fram_store.ByMin.LastTime > 200 * SECSPERDAY) { // run: first time or after a long time (200 days)
+	if(time > fram_store.ByMin.LastTime + 200 * SECSPERDAY) { // run: first time or after a long time (200 days)
 		#if DEBUGSOO > 2
 			os_printf("%u - %u > 200 days\n", time, fram_store.ByMin.LastTime);
 		#endif
@@ -94,7 +95,7 @@ void ICACHE_FLASH_ATTR update_cnts(time_t time) // 1 minute passed
 
 void ICACHE_FLASH_ATTR update_cnt_timer_func(void) // repeat every 1 sec
 {
-	if(pwmt_cur.Time == 0 || (pwmt_cur.Time - fram_store.ByMin.LastTime < TIME_STEP_SEC)) return; // dont passed 1 min
+	if(!(pwmt_cur.Time && (pwmt_cur.Time >= fram_store.ByMin.LastTime + TIME_STEP_SEC))) return; // dont passed 1 min
 	if(wifi_station_get_connect_status() == STATION_GOT_IP && !flg_open_all_service) {// some problems with wifi st here
 		wifi_station_disconnect();
 		#ifdef DEBUG_TO_RAM
@@ -128,7 +129,7 @@ void ICACHE_FLASH_ATTR update_cnt_timer_func(void) // repeat every 1 sec
 	uint16 maxloop = 400;
 	do {
 		update_cnts(pwmt_cur.Time);
-	} while((pwmt_cur.Time - fram_store.ByMin.LastTime >= TIME_STEP_SEC) && maxloop--);
+	} while((pwmt_cur.Time >= fram_store.ByMin.LastTime + TIME_STEP_SEC) && maxloop--);
 
 	uint16 save_size = sizeof(fram_store.ByMin);
 	// By day array
@@ -215,7 +216,6 @@ void ICACHE_FLASH_ATTR FRAM_Store_Init(void)
 #endif
 	}
 	FRAM_Status = 0;
-	iot_cloud_init();
 	#if DEBUGSOO > 4
 		struct tm tm;
 		_localtime(&fram_store.ByMin.LastTime, &tm);
@@ -281,6 +281,7 @@ void ICACHE_FLASH_ATTR user_initialize(uint8 index)
 
 		FRAM_Store_Init();
 		irda_init();
+		iot_cloud_init();
 	}
 
 }

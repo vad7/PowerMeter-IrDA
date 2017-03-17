@@ -1615,6 +1615,7 @@ void ICACHE_FLASH_ATTR web_int_callback(TCP_SERV_CONN *ts_conn, uint8 *cstr)
 		cstr += 4;
 		ifcmp("LastSt_time") tcp_puts("%u", iot_last_status_time);
 		else ifcmp("LastSt") tcp_puts("%s", iot_last_status);
+		else ifcmp("flg") tcp_puts("%u", iot_tc_init_flg);
 	}
 	else ifcmp("power_xml") {
 		web_conn->udata_start = 0;

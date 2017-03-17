@@ -1,22 +1,22 @@
 <!DOCTYPE html>
 <html><head>
 	<meta http-equiv="Content-type" content="text/html; charset=utf-8">
-	<title>Power Meter Send command</title>
+	<title>Отправить команду</title>
 	<link rel="stylesheet" href="../style.css">
 </head><body>
 ~inc:menumain.inc~
 	<div class="content">
-		<h2 class="title">Send command to Power meter</h2>
+		<h2 class="title">Отправить команду на счетчик</h2>
 		<form method="post" action="" onsubmit="SubmitFunction()">
 			<table class="form">
 				<tr>
-					<td class="left">Send hex string, max 16 bytes (00 00 00...):
+					<td class="left">Шестнадцатеричная строка, максимум 16 байт (00 00 00...):
 				</tr>
 				<tr>
 					<td><input name='command_send' size='84' maxlength='50' value='~command_send~'></td>
 				</tr>
 				<tr>
-					<td class="left">Response hex (~command_resp_st~):</td>
+					<td class="left">Ответ (~command_resp_st~):</td>
 				</tr>
 				<tr>
 					<td><input value='~command_response~' size='84' readonly></td>
@@ -24,9 +24,14 @@
  			</table>
 			<p class="center">
 				<input type="hidden" name="command_send_now" value="1">
-				<input type="submit" value="Send" class="button">
+				<input type="submit" value="Отправить" class="button">
 			</p>
 		</form>
+	</div>
+	<div class="content">
+		<p class="center">
+<a href="/help_commands.htm">Описание команд.</a>
+		</p>
 	</div>
 ~inc:footer.inc~
 <script src="cookie.js"></script>

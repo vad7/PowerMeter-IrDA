@@ -47,10 +47,10 @@ os_timer_t error_timer;
 ip_addr_t tc_remote_ip;
 TCP_SERV_CFG * tc_servcfg;
 
-int tc_init_flg; // внутренние флаги инициализации
-
+int iot_tc_init_flg; // внутренние флаги инициализации:
 #define TC_INITED 		(1<<0)
 #define TC_RUNNING		(1<<1)
+
 #define mMIN(a, b)  ((a<b)?a:b)
 
 void tc_go_next(void);
@@ -99,6 +99,7 @@ err_t ICACHE_FLASH_ATTR tc_recv(TCP_SERV_CONN *ts_conn) {
 #if DEBUGSOO > 4
     os_printf("IOT_Rec(%u): %s\n", len, pstr);
 #endif
+    if(Debug_level >= 3) dbg_printf("IOT<-%s", pstr);
     os_memset(iot_last_status, 0, sizeof(iot_last_status));
     os_strncpy(iot_last_status, (char *)pstr, mMIN(sizeof(iot_last_status)-1, len)); // status/error
     iot_last_status_time = get_sntp_time();
@@ -115,7 +116,7 @@ err_t ICACHE_FLASH_ATTR tc_recv(TCP_SERV_CONN *ts_conn) {
 		        uint8 *nstr = web_strnstr(pstr, "\r\n", len); // find next delimiter
 		        if(nstr != NULL) *nstr = '\0';
 	        	if(ahextoul(pstr)) { // not 0 = OK
-	    			tc_init_flg &= ~TC_RUNNING; // clear run flag
+	    			iot_tc_init_flg &= ~TC_RUNNING; // clear run flag
 	    			iot_data_processing->last_run = system_get_time();
 					#if DEBUGSOO > 4
 						os_printf("Ok!!!\n");
@@ -186,6 +187,7 @@ err_t ICACHE_FLASH_ATTR tc_listen(TCP_SERV_CONN *ts_conn) {
 	tcpsrv_print_remote_info(ts_conn);
 	os_printf("tc_listen, send(%d): %s\n", len, buf);
 #endif
+	if(Debug_level >= 4) dbg_printf("IOT->%s", buf);
 	err_t err = tcpsrv_int_sent_data(ts_conn, buf, len);
 	os_free(p);
 	return err;
@@ -254,7 +256,7 @@ void ICACHE_FLASH_ATTR tc_dns_found_callback(uint8 *name, ip_addr_t *ipaddr, voi
 //-------------------------------------------------------------------------------
 void ICACHE_FLASH_ATTR close_dns_finding(void){
 	ets_timer_disarm(&error_timer);
-	if(tc_init_flg & TC_RUNNING) { // ожидание dns_found_callback() ?
+	if(iot_tc_init_flg & TC_RUNNING) { // ожидание dns_found_callback() ?
 		// убить вызов  tc_dns_found_callback()
 		int i;
 		for (i = 0; i < DNS_TABLE_SIZE; ++i) {
@@ -267,7 +269,7 @@ void ICACHE_FLASH_ATTR close_dns_finding(void){
 				#endif
 			}
 		}
-		tc_init_flg &= ~TC_RUNNING;
+		iot_tc_init_flg &= ~TC_RUNNING;
 	}
 	tc_close();
 }
@@ -277,13 +279,13 @@ void ICACHE_FLASH_ATTR close_dns_finding(void){
 err_t ICACHE_FLASH_ATTR tc_go(void)
 {
 	err_t err = ERR_USE;
-	if((tc_init_flg & TC_RUNNING) || iot_data_processing == NULL) return err; // выход, если процесс запущен или нечего запускать
+	if((iot_tc_init_flg & TC_RUNNING) || iot_data_processing == NULL) return err; // выход, если процесс запущен или нечего запускать
 	#if DEBUGSOO > 4
 		os_printf("Run: %x, %u\n", iot_data_processing, iot_data_processing->min_interval);
 	#endif
 	err = tc_init(); // инициализация TCP
 	if(err == ERR_OK) {
-		tc_init_flg |= TC_RUNNING; // процесс запущен
+		iot_tc_init_flg |= TC_RUNNING; // процесс запущен
 		run_error_timer(TCP_REQUEST_TIMEOUT); // обработать ошибки и продолжение
 
 #if DEBUGSOO > 4
@@ -303,7 +305,7 @@ err_t ICACHE_FLASH_ATTR tc_go(void)
 			err = ERR_OK;
 		}
 		if (err != ERR_OK) {
-			tc_init_flg &= ~TC_RUNNING; // процесс не запущен
+			iot_tc_init_flg &= ~TC_RUNNING; // процесс не запущен
 //				tc_close();
 		}
 	}
@@ -313,11 +315,11 @@ err_t ICACHE_FLASH_ATTR tc_go(void)
 void tc_go_next(void)
 {
 	#if DEBUGSOO > 4
-		os_printf("iot_go_next(%d): %u: %x %x\n", tc_init_flg, system_get_time(), iot_data_first, iot_data_processing);
+		os_printf("iot_go_next(%d): %u: %x %x\n", iot_tc_init_flg, system_get_time(), iot_data_first, iot_data_processing);
 	#endif
-	if(tc_init_flg & TC_RUNNING) { // Process timeout
+	if(iot_tc_init_flg & TC_RUNNING) { // Process timeout
 		close_dns_finding();
-		tc_init_flg &= ~TC_RUNNING; // clear
+		iot_tc_init_flg &= ~TC_RUNNING; // clear
 		if(iot_data_processing != NULL) iot_data_processing = iot_data_processing->next;
 	}
 	// next
@@ -334,18 +336,18 @@ void tc_go_next(void)
 uint8_t ICACHE_FLASH_ATTR iot_cloud_init(void)
 {
 	uint8_t retval;
-	if(tc_init_flg) { // already init - restart
+	if(iot_tc_init_flg) { // already init - restart
 		close_dns_finding();
-		tc_init_flg = 0;
+		iot_tc_init_flg = 0;
 	}
 	if(iot_data_first != NULL) { // data exist - clear
 		iot_data_clear();
 	}
 	if(!cfg_glo.iot_cloud_enable) return 0; // iot cloud disabled
 	retval = web_fini(iot_cloud_ini);
-	if(retval == 0) tc_init_flg |= TC_INITED;
+	if(retval == 0) iot_tc_init_flg |= TC_INITED;
 #if DEBUGSOO > 4
-		os_printf("iot_init: %d\n", tc_init_flg);
+		os_printf("iot_init: %d\n", iot_tc_init_flg);
 #endif
 	return retval;
 }
@@ -378,16 +380,16 @@ void ICACHE_FLASH_ATTR iot_cloud_send(uint8 fwork)
 	}
 	if(!cfg_glo.iot_cloud_enable) return; // iot cloud disabled
 	#if DEBUGSOO > 4
-		os_printf("iot_send: %d, %d: %x %x, IP%d(%d)\n", tc_init_flg, fwork, iot_data_first, iot_data_processing, wifi_station_get_connect_status(), flg_open_all_service);
+		os_printf("iot_send: %d, %d: %x %x, IP%d(%d)\n", iot_tc_init_flg, fwork, iot_data_first, iot_data_processing, wifi_station_get_connect_status(), flg_open_all_service);
 	#endif
-	if((tc_init_flg & TC_INITED) == 0) { //
+	if((iot_tc_init_flg & TC_INITED) == 0) { //
 		if(iot_cloud_init()) return; // Not inited - reinit
 	}
 	if(fwork == 0) { // end
 		close_dns_finding();
 		return;
 	}
-	if((tc_init_flg & TC_RUNNING)) return; // exit if process active
+	if((iot_tc_init_flg & TC_RUNNING)) return; // exit if process active
 	if(iot_data_first != NULL) {
 		if(iot_data_processing == NULL) iot_data_processing = iot_data_first;
 		tc_go_next();

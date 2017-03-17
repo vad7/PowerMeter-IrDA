@@ -10,10 +10,12 @@
 <h2 class="title">Debug to RAM</h2>
 Address: ~dbg_addr~ filled: ~dbg_len~<br>
 <form method="post" action="debugram.htm">
-	Size: <input name="dbg_size" value="~dbg_size~">&ensp;
+	Size: <input name="dbg_size" size="7" value="~dbg_size~">&ensp;
 	<input type="radio" name="dbg_enable" value="0"> stop 
-	<input type="radio" name="dbg_enable" value="1" title="dbg_printf()"> start tiny 
-	<input type="radio" name="dbg_enable" value="2" title="+ os_printf()"> start all 
+	<input type="radio" name="dbg_enable" value="1" title="dbg_printf()"> tiny 
+	<input type="radio" name="dbg_enable" value="2" title="+ os_printf()"> all 
+	<input type="radio" name="dbg_enable" value="3" title="IoT receive"> IotR 
+	<input type="radio" name="dbg_enable" value="4" title="+ IoT send"> +IotS 
 	&ensp;
 	<input type="submit" value="Set" class="button">
 <script type="text/javascript">

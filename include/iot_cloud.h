@@ -7,6 +7,7 @@ extern const uint8 key_http_ok[];
 extern uint8 iot_cloud_ini[];
 extern char iot_last_status[]; // last status/error returned by server
 extern time_t iot_last_status_time;
+extern int iot_tc_init_flg;
 
 char *iot_server_name; // = NULL; // set from ini: iot_server=
 typedef struct _IOT_DATA {

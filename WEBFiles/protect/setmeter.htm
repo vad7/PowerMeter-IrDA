@@ -1,105 +1,105 @@
 <!DOCTYPE html>
 <html><head>
 	<meta http-equiv="Content-type" content="text/html; charset=utf-8">
-	<title>Power Meter Setup</title>
+	<title>Настройка</title>
 	<link rel="stylesheet" href="../style.css">
 	<script src="/scripts.js"></script>
 	<script src="/site.js"></script>
 </head><body>
 ~inc:menumain.inc~
 	<div class="content">
-		<h2 class="title">Power Meter Setup</h2>
+		<h2 class="title">Настройка</h2>
 		<form method="post" action="" onsubmit="SubmitFunction()">
 			<table class="form">
 				<tr>
-					<td class="label">Request period, sec:</td>
-					<td><input name='cfg_glo_req_period' maxlength='10' value='~cfg_glo_req_period~'></td>
+					<td class="label">Период опроса счетчика:</td>
+					<td><input name='cfg_glo_req_period' maxlength='10' value='~cfg_glo_req_period~'> sec</td>
 				</tr>
 				<tr>
-					<td class="label">Main page refresh, msec:</td>
-					<td><input name='cfg_glo_refresh_t' maxlength='10' value='~cfg_glo_refresh_t~'></td>
+					<td class="label">Период обновления страницы:</td>
+					<td><input name='cfg_glo_refresh_t' maxlength='10' value='~cfg_glo_refresh_t~'> msec</td>
 				</tr>
 				<tr>
-					<td class="label">Time max mismatch to correct, sec:</td>
-					<td><input name='cfg_glo_time_maxmism' maxlength='10' value='~cfg_glo_time_maxmism~'></td>
+					<td class="label">Макс. расхождение времени:</td>
+					<td><input name='cfg_glo_time_maxmism' maxlength='10' value='~cfg_glo_time_maxmism~'> sec</td>
 				</tr>
 				<tr>
-					<td class="label">Read timeout, us:</td>
-					<td><input name='cfg_glo_pwmt_rtout' maxlength='10' value='~cfg_glo_pwmt_rtout~'></td>
+					<td class="label">Таймаут доступа:</td>
+					<td><input name='cfg_glo_pwmt_rtout' maxlength='10' value='~cfg_glo_pwmt_rtout~'> us</td>
 				</tr>
 				<tr>
-					<td class="label">Response timeout, us:</td>
-					<td><input name='cfg_glo_pwmt_tout' maxlength='10' value='~cfg_glo_pwmt_tout~'></td>
+					<td class="label">Макс. время ответа:</td>
+					<td><input name='cfg_glo_pwmt_tout' maxlength='10' value='~cfg_glo_pwmt_tout~'> us</td>
 				</tr>
 				<tr>
-					<td class="label">Delay after error, us:</td>
-					<td><input name='cfg_glo_pwmt_derr' maxlength='10' value='~cfg_glo_pwmt_derr~'></td>
+					<td class="label">Задержка после ошибки:</td>
+					<td><input name='cfg_glo_pwmt_derr' maxlength='10' value='~cfg_glo_pwmt_derr~'> us</td>
 				</tr>
 				<tr>
-					<td class="label">Tariff 1 Start (incl):</td>
-					<td><input title='hhmm' name='cfg_glo_T1St' maxlength='4' value='~cfg_glo_T1St~'></td>
+					<td class="label">Тариф Т1 (день), c:</td>
+					<td><input title='hhmm (included)' name='cfg_glo_T1St' maxlength='4' value='~cfg_glo_T1St~'></td>
 				</tr>
 				<tr>
-					<td class="label">Tariff 1 End:</td>
+					<td class="label">Тариф Т1 (день), до:</td>
 					<td><input title='hhmm' name='cfg_glo_T1En' maxlength='4' value='~cfg_glo_T1En~'></td>
 				</tr>
 				<tr>
-					<td class="label">Adjust SNTP Time:</td>
-					<td><input title='sec' name='cfg_glo_TAdj' maxlength='6' value='~cfg_glo_TAdj~'></td>
+					<td class="label">Подстройка времени SNTP:</td>
+					<td><input title='sec' name='cfg_glo_TAdj' maxlength='6' value='~cfg_glo_TAdj~'> sec</td>
 				</tr>
 				<tr>
-					<td class="label">Total cnt, kWt*h * ~cfg_glo_PulsesPerKWt~:
+					<td class="label">Счетчик, квт*ч * ~cfg_glo_PulsesPerKWt~:
 					<input title='change?' type='checkbox' name='chg_tcnt' value='0'> 
 					</td>
-					<td><input title='0..4294967295' id='TCnt' name='cfg_glo_TotalCnt' maxlength='10' value='~TotalCnt~'>&ensp;&larr;&ensp;<input title='0.00..999999.99' id='kWt' size='8' value='0' onchange='CalcTotalCnt("TCnt","kWt")'>&nbsp;kWt*h</td>
+					<td><input title='0..4294967295' id='TCnt' name='cfg_glo_TotalCnt' maxlength='10' value='~TotalCnt~'>&ensp;&larr;&ensp;<input title='0.000..999999.999' id='kWt' size='8' value='0' onchange='CalcTotalCnt("TCnt","kWt")'>&nbsp;кВт*ч</td>
 				</tr>
 				<tr>
-					<td class="label">Power meter address:</td>
+					<td class="label">Сетевой адрес счетчика:</td>
 					<td><input title='0 - any (write impossible)' name='cfg_glo_pwmt_addr' maxlength='4' value='~cfg_glo_pwmt_addr~'></td>
 				</tr>
 				<tr>
-					<td class="label">User password (int8 array):</td>
+					<td class="label">Пароль пользователя (числа):</td>
 					<td><input title='x,x,x,x,x,x' name='cfg_glo_pass1' maxlength='30' size='50' value='~cfg_glo_pass1~'></td>
 				</tr>
 				<tr>
-					<td class="label">Admin password (int8 array):</td>
+					<td class="label">Пароль админа (числа):</td>
 					<td><input title='x,x,x,x,x,x' name='cfg_glo_pass2' maxlength='30' size='50' value='~cfg_glo_pass2~'></td>
 				</tr>
 				<tr>
-					<td class="label">Field delimiter in .csv:</td>
+					<td class="label">Разд. полей csv (граф.):</td>
 					<td><input title='char' name='cfg_glo_csv_delim' maxlength='1' value='~cfg_glo_csv_delim~'></td>
 				</tr>
 				<tr>
-					<td class="label">Decimal delimiter in .csv:</td>
+					<td class="label">Разд. десят. csv (граф.):</td>
 					<td><input title='char' name='cfg_glo_csv_delimd' maxlength='1' value='~cfg_glo_csv_delimd~'></td>
 				</tr>
 				<tr>
-					<td class="label">Field delim. in total:</td>
+					<td class="label">Разд. полей csv (итого):</td>
 					<td><input title='char' name='cfg_glo_csv_delim_t' maxlength='1' value='~cfg_glo_csv_delim_t~'></td>
 				</tr>
 				<tr>
-					<td class="label">Decimal delimiter in total:</td>
+					<td class="label">Разд. десят. csv (итого):</td>
 					<td><input title='char' name='cfg_glo_csv_delim_td' maxlength='1' value='~cfg_glo_csv_delim_td~'></td>
 				</tr>
 				<tr>
-					<td class="label">IoT cloud enable:</td>
+					<td class="label">Включить передачу IoT:</td>
 					<td><input type='checkbox' name='cfg_iot_cloud_enable' value='~cfg_iot_cloud_enable~'></td>
 				</tr>
 				<tr>
-					<td class="label">IoT cloud setup:
+					<td class="label">Настройка IoT:
 					<input title='change?' type='checkbox' name='chg_iot_ini' value='0'></td>
 					<td><textarea title='protect/iot_cloud.ini' name='cfg_iot_ini' rows=4 cols=50 wrap="off" maxlength=1023>~cfg_iot_ini~</textarea></td>
 				</tr>
 				<tr>
-					<td class="label">FRAM size (bytes):</td>
+					<td class="label">Размер FRAM, байт:</td>
 					<td><input title='1024..' name='cfg_glo_Fram_Size' maxlength='10' value='~cfg_glo_Fram_Size~'></td>
 				</tr>
 				<tr>
-					<td class="label">FRAM access frequence:</td>
-					<td><input title='kHz' name='cfg_glo_FramFr' maxlength='5' value='~cfg_glo_FramFr~'></td>
+					<td class="label">Частота доступа к FRAM:</td>
+					<td><input title='100..400' name='cfg_glo_FramFr' maxlength='5' value='~cfg_glo_FramFr~'> кГц</td>
 				</tr>
 				<tr>
-					<td class="label">Reset all data:</td>
+					<td class="label">Очистка данных:</td>
 					<td><input type='password' title="Enter RESETn, n: ''-all, 1-eeprom, 2-Day array, 4-Minute array" name='cfg_glo_reset_data' maxlength='10' value=''></td>
 				</tr>
  			</table>
@@ -111,14 +111,14 @@
 	</div>
 	<div class="content">
 		<p class="center">
-			<a href="settings.bin">Download settings...</a><br>
+			<a href="settings.bin">Скачать настройки.</a><br>
 			<form method='post' action='/fsupload' enctype='multipart/form-data' class="center">
-			Restore settings:
+			Восстановить настройки:
 			<input type='file' name='settings'> <input type='submit' value='Upload' class="button">
 		<br><br>
-			<a href="/protect/fram_all.bin">Download FRAM memory (~cfg_glo_Fram_Size~ bytes).</a><br><br>
+			<a href="/protect/fram_all.bin">Скачать всю FRAM (~cfg_glo_Fram_Size~ байт).</a><br><br>
 			<form method='post' action='/fsupload' enctype='multipart/form-data' class="center">
-			Upload to FRAM:
+			Загрузить в FRAM:
 			<input type='file' name='eeprom'> <input type='submit' value='Upload' class="button">
 			</form>
 		</p>
