@@ -1292,7 +1292,7 @@ int ICACHE_FLASH_ATTR OTA_write_header(uint8 fwrite)
 	if(fwrite) {
 		OTA->id = OTA_flash_struct_id;
 		OTA->image_addr = file_load_addr;
-		OTA->image_sectors = file_load_size / flashchip_sector_size + 1;
+		OTA->image_sectors = ((file_load_size + (flashchip_sector_size-1)) & ~(flashchip_sector_size-1)) / flashchip_sector_size;
 		#if DEBUGSOO > 4
 			os_printf("\nFirmware loaded to %x, %d(%d)\n", OTA->image_addr, file_load_size, OTA->image_sectors);
 		#endif
@@ -1480,12 +1480,14 @@ xfirmware_file_err:				if(isWEBFSLocked) return 400;
 						pupload->status = UPL_ST_FLASH; // = 2 загрузка файла во flash
 						break;
 					}
+#ifdef USE_EEPROM
 					else if(rom_xstrcmp(pupload->name, eeprom_filename)) {
 						pupload->fsize = cfg_glo.Fram_Size;
 						pupload->faddr = 0;
 						pupload->status = UPL_ST_EXTMEM;
 						break;
 					}
+#endif
 #endif
 					if(isWEBFSLocked) return 400;
 					SetSCB(SCB_REDIR);
@@ -1539,6 +1541,7 @@ xfirmware_file_err:				if(isWEBFSLocked) return 400;
 				else {
 					len = mMIN(max_len_buf_write_flash, web_conn->content_len - 8 - pupload->sizeboundary);
 				}
+#ifdef USE_EEPROM
 				if(pupload->status == UPL_ST_EXTMEM) {
 					len = mMIN(len, MAX_EEPROM_BLOCK_LEN);
 					block_size = mMIN(pupload->fsize, len);
@@ -1547,7 +1550,9 @@ xfirmware_file_err:				if(isWEBFSLocked) return 400;
 						//while((UART0_STATUS >> UART_TXFIFO_CNT_S) & UART_TXFIFO_CNT);
 					#endif
 					if(block_size) eeprom_write_block(pupload->faddr, pstr, block_size);
-				} else {
+				} else
+#endif
+				{
 					block_size = mMIN(pupload->fsize, len);
 					if(block_size) { // идут данные файла
 //						tcpsrv_unrecved_win(ts_conn); // для ускорения, пока стрирается-пишется уже обновит окно (включено в web_rx_buf)
@@ -1619,9 +1624,11 @@ xfirmware_file_err:				if(isWEBFSLocked) return 400;
 						rom_xstrcpy(pupload->filename, disk_ok_filename); // os_memcpy(pupload->filename,"/disk_ok.htm\0",13);
 						iot_cloud_init();
 					};
+#ifdef USE_EEPROM
 					if(pupload->status == UPL_ST_EXTMEM) { // loaded
 						FRAM_Store_Init();
 					}
+#endif
 					if(ret == 1) pupload->status = UPL_ST_FIND; // = 0 найден следующий boundary
 					if(ret == 200)	return ret;
 				}

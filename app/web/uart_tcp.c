@@ -362,7 +362,7 @@ void ICACHE_FLASH_ATTR uart_drv_close(void)
 	//clear rx and tx fifo, not ready
 	uint32 conf0 = UART0_CONF0;
 	UART0_CONF0 = conf0 | UART_RXFIFO_RST | UART_TXFIFO_RST;
-	UART0_CONF0 = conf0 & (~ (UART_RXFIFO_RST | UART_TXFIFO_RST));
+	UART0_CONF0 = (conf0 & (~ (UART_RXFIFO_RST | UART_TXFIFO_RST))); // | USE_UART0;
 	UART0_CONF1 &= ~UART_RX_TOUT_EN;
 #ifdef USE_TCP2UART
 	if(uart_drv.uart_rx_buf != NULL) {
