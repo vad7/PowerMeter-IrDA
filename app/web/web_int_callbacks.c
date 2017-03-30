@@ -643,7 +643,7 @@ void ICACHE_FLASH_ATTR web_get_history_bydays(TCP_SERV_CONN *ts_conn)
 		df = cfg_glo.csv_delimiter;
 	}
     if(CheckSCB(SCB_RETRYCB)==0) {  // Check if this is a first round call
-		tcp_puts("time%cДень%cНочь\r\n", df, df); // csv header
+    	tcp_puts(hst_bydays_flags & HST_TotalCnt ? "time%cday%cnight\r\n" : """time""%c""День""%c""Ночь""\r\n", df, df); // csv header
     	if(hst_bydays_flags & HST_TotalCnt) {
     		HistorySums[0] = fram_store.LastTotal_T1;
     		HistorySums[1] = fram_store.LastTotal - fram_store.LastTotal_T1;

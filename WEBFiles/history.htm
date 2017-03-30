@@ -176,6 +176,8 @@ d3.csv("history.csv", function (data){
 		.transition()
 		  .attr("y", function(d) { return y(d.y); })
 		  .attr("height", function(d) { return height - y(d.y); });
+	  svg.selectAll("g.y.axis")
+        .call(yAxis);
 	};
 
 	function transitionStacked() {
@@ -189,6 +191,8 @@ d3.csv("history.csv", function (data){
 		.transition()
 		  .attr("x", function(d) { return xScale(d.x); })
 		  .attr("width", xScale.rangeBand());
+	  svg.selectAll("g.y.axis")
+        .call(yAxis);
 	};
 
     var tooltip = svg.append("g")
