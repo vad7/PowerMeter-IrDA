@@ -31,7 +31,7 @@ bin_historyall
 inc:menumain.inc
 TotalCntTime
 inc:footer.inc
-ChartMaxDays
+ChMD
 inc:time.inc
 bin_historyallcnt
 bin_historycnt
@@ -42,6 +42,8 @@ sys_mactime
 inc:footer.inc
 inc:vdd.inc
 inc:time.inc
+cfg_glo_tarif1
+cfg_glo_tarif2
 cfg_glo_refresh_t
 inc:grfx1.inc
 inc:grfx2.inc
@@ -297,6 +299,8 @@ cfg_glo_pwmt_tout
 cfg_glo_pwmt_derr
 cfg_glo_T1St
 cfg_glo_T1En
+cfg_glo_tarif1
+cfg_glo_tarif2
 cfg_glo_TAdj
 cfg_glo_PulsesPerKWt
 TotalCnt

@@ -40,6 +40,7 @@ typedef struct {
 	uint8	Pass[2][6];
 	uint8	iot_cloud_enable;	// use "protect/iot_cloud.ini" to send data to iot cloud
 	uint8	pwmt_address;		// power meter network address, 0 - group
+	uint16  Tariffs[2];			// T1, T2. *100
 //	char sntp_server[20];
 } CFG_GLO;
 CFG_GLO __attribute__((aligned(4))) cfg_glo;
@@ -69,6 +70,7 @@ uint32 LastCnt_Previous;
 uint32 KWT_Previous;
 // Cookies:
 uint32 Web_ChartMaxDays; 	// ~ChartMaxDays~
+uint32 Web_ChMD;			// ~ChMD~, Chart max days for historyall.htm
 uint8  Web_ShowBy; 			// ~ShowBy~ : 0 - all, 1 - by day, 2 - by hour
 //
 void user_initialize(uint8 index) ICACHE_FLASH_ATTR;

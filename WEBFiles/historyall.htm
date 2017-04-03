@@ -31,7 +31,7 @@ svg {
 	<div id="chart-svg"></div>
 	<br>
 	<form method="post" action="historyall.htm">
-Дней: <input type="text" id="ChartMaxDays" maxlength="10" size="5" title="0 - all">&nbsp кВт*ч, &nbsp
+Дней: <input type="text" id="ChMD2" maxlength="10" size="5" title="0 - all">&nbsp кВт*ч, &nbsp
 <input type="submit" value="Обновить" onClick="updCookie('ChartMaxDays');" class="button">
 	</form>
 <br>
@@ -42,7 +42,7 @@ svg {
 <script src="cookies.js"></script>
 <script>
 	cookie_path = "history";
-	setCookieElem("ChartMaxDays", "~ChartMaxDays~");
+	setCookieElem("ChMD", "~ChMD~");
 </script>
 <script>
 var margin = {top: 10, right: 50, bottom: 80, left: 40},

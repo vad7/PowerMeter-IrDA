@@ -367,6 +367,10 @@ xfram_save:		eeprom_write_block(0, (uint8 *)&fram_store, sizeof(fram_store));
 	        	uint8 i = atoi(cstr + 4) - 1;
 	        	if(i <= 1) str_array_hex_byte(pvar, cfg_glo.Pass[i], sizeof(cfg_glo.Pass[0]));
 			}
+			else ifcmp("tarif") {
+				uint8 i = atoi(cstr + 5) - 1;
+				if(i <= 1) cfg_glo.Tariffs[i] = atoi_z(pvar, 1);
+			}
 			else ifcmp("reset_data") { // all='RESET', mask='RESETn', n = 1|2|4
 				if(os_strcmp(pvar, "RESET") == 0) power_meter_clear_all_data(pvar[5] >= '0' ? ahextoul(pvar + 5) : 0xFF);
 			}
@@ -438,6 +442,7 @@ xfram_save:		eeprom_write_block(0, (uint8 *)&fram_store, sizeof(fram_store));
 		// sys_write_cfg();
 	}
 	else ifcmp("ChartMaxDays") Web_ChartMaxDays = val;
+	else ifcmp("ChMD") Web_ChMD = val;
 	else ifcmp("ShowBy") Web_ShowBy = val;
 	else ifcmp("Tlog") Web_Tlog = val;
 	else ifcmp("iot_") { // from iot_cloud.ini

@@ -1097,6 +1097,10 @@ void ICACHE_FLASH_ATTR web_int_callback(TCP_SERV_CONN *ts_conn, uint8 *cstr)
 				uint8 i = atoi(cstr + 4) - 1;
 				if(i <= 1) web_int_callback_print_hexarray(web_conn, cfg_glo.Pass[i], sizeof(cfg_glo.Pass[0]));
 			}
+			else ifcmp("tarif") {
+				uint8 i = atoi(cstr + 5) - 1;
+				if(i <= 1) tcp_puts("%u.%02u", cfg_glo.Tariffs[i] / 100, cfg_glo.Tariffs[i] % 100);
+			}
 		}
 		else ifcmp("iot_") {	// cfg_
 			cstr += 4;
@@ -1350,15 +1354,16 @@ void ICACHE_FLASH_ATTR web_int_callback(TCP_SERV_CONN *ts_conn, uint8 *cstr)
 			ifcmp("all") {
 				cstr += 3;
 				web_conn->udata_start = 0;
+				web_conn->udata_stop = Web_ChMD;
 			} else {
 				if(Web_ShowBy == 0) Web_ShowBy = 1;
 				web_conn->udata_start = (Web_ShowBy<<1); // | Web_ShowByKWT;	// OutType
+				web_conn->udata_stop = Web_ChartMaxDays;
 			}
 			ifcmp("cnt") {
 				web_conn->udata_start = (web_conn->udata_start & ~HST_ByHour) | HST_TotalCnt;
 				//if(cfg_glo.TimeT1Start || cfg_glo.TimeT1End) web_conn->udata_start |= HST_MTariffs; // Multi tariffs
 			}
-			web_conn->udata_stop = Web_ChartMaxDays;
 			if(web_conn->udata_start & HST_ByDay) {
 				web_conn->web_disc_par = fram_store.PtrCurrentByDay;
 				web_get_history_bydays(ts_conn);
@@ -1610,6 +1615,7 @@ void ICACHE_FLASH_ATTR web_int_callback(TCP_SERV_CONN *ts_conn, uint8 *cstr)
 	else ifcmp("i2c_errors") tcp_puts("%u", I2C_EEPROM_Error);
 #endif
 	else ifcmp("ChartMaxDays") tcp_puts("%u", Web_ChartMaxDays);
+	else ifcmp("ChMD") tcp_puts("%u", Web_ChMD);
 	else ifcmp("ShowBy") tcp_puts("%d", Web_ShowBy);
 	else ifcmp("iot_") {
 		cstr += 4;
@@ -1641,7 +1647,7 @@ void ICACHE_FLASH_ATTR web_int_callback(TCP_SERV_CONN *ts_conn, uint8 *cstr)
 	else ifcmp("time_l") {
 		cstr += 6;
 		uint8 i = *cstr - '0';
-		tcp_puts("%u", pwmt_time_array[i][*(++cstr) - '0']);
+		tcp_puts("%u", sntp_local_to_UTC_time(pwmt_time_array[i][*(++cstr) - '0']));
 	}
 // PowerMeter
 	else tcp_put('?');
