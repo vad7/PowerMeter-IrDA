@@ -19,7 +19,7 @@ typedef struct {
 	uint32 Total_T1[3];	// Total Tarif 1 (day), W*h, phase 1..3
 	time_t Time;		// local time
 	time_t sntp_time;
-	uint8  Month;		// 1..12 current month
+	uint8  Month;		// 1..12 current month (+0x68)
 } PWMT_CURRENT;
 PWMT_CURRENT pwmt_cur;
 
@@ -38,10 +38,11 @@ typedef struct {
 	uint32 ThisYear_T1;
 	uint32 PrevYear;
 	uint32 PrevYear_T1;
-	uint16 DayLastRead;
-	uint8  Status; // 0 - empty, 1 - received, 2 - receiving TAll, 3 - receiving T1
+	uint32 Month[12][2];
+	uint16 DayLastRead; // +0x98
+	uint8  Status; // 0 - empty, 1 - received, 2 - receiving TAll, 3 - receiving T1, 4.. - receving Month[]
 } PWMT_ARCHIVE;
-#define PWMT_ARCHIVE_READ_BUF_SIZE	6
+#define PWMT_ARCHIVE_READ_BUF_SIZE	8 // (n/2) must divide 12 without remains
 PWMT_ARCHIVE pwmt_arch;
 
 uint8 pwmt_connect_status; 	// PWMT_CONNECT_STATUS
@@ -52,6 +53,8 @@ uint8 pwmt_command_send_len;
 uint8 pwmt_command_response[16]; // last response on custom send
 uint8 pwmt_command_response_len;
 uint8 pwmt_command_response_status; // 0xFF - waiting, otherwise pwmt_last_response
+#define PWMT_REPEAT_CNT 3		// attempts when error
+uint8 pwmt_repeat_on_error_cnt;
 uint32 pwmt_read_errors; // total count read error pwmt
 
 typedef enum

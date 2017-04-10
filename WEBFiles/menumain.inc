@@ -10,7 +10,7 @@
 		<a href="/protect/setmeter.htm">Настройка</a>
 		<a href="/settings.htm">Дополнительно</a>
 		<a href="/timelogs.htm">Логи</a>
-		<a href="/help.htm">Описание</a>
+		<a href="/bymonth.htm">Итого помесячно</a>
 	</div>
 </div>
 <script type="text/javascript">

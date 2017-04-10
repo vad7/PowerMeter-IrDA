@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html><head>
+	<meta http-equiv="Content-type" content="text/html; charset=utf-8">
+	<title>Счетчик электроэнергии</title>
+	<link rel="stylesheet" href="/style.css">
+	<script src="/site.js"></script>
+</head><body>
+~inc:menumain.inc~
+<div class="content">
+<p class="center">
+<table id="power_arch" class="mdbtab">
+	<tr><th width="24%">Архив, кВт*ч</th><th width="19%">T1 (День)</th><th width="19%">T2 (Ночь)</th><th width="19%">Итого</th><th width="19%">Сумма, руб.</th></tr>
+	<tr><th align="left">Предыдущий год</th><th></th><th></th><th></th><th></th></tr>
+	<tr><th align="left">Этот год</th><th></th><th></th><th></th><th></th></tr>
+	<tr><th align="left">&#8199;1. Январь</th><th></th><th></th><th></th><th></th></tr>
+	<tr><th align="left">&#8199;2. Февраль</th><th></th><th></th><th></th><th></th></tr>
+	<tr><th align="left">&#8199;3. Март</th><th></th><th></th><th></th><th></th></tr>
+	<tr><th align="left">&#8199;4. Апрель</th><th></th><th></th><th></th><th></th></tr>
+	<tr><th align="left">&#8199;5. Май</th><th></th><th></th><th></th><th></th></tr>
+	<tr><th align="left">&#8199;6. Июнь</th><th></th><th></th><th></th><th></th></tr>
+	<tr><th align="left">&#8199;7. Июль</th><th></th><th></th><th></th><th></th></tr>
+	<tr><th align="left">&#8199;8. Август</th><th></th><th></th><th></th><th></th></tr>
+	<tr><th align="left">&#8199;9. Сентябрь</th><th></th><th></th><th></th><th></th></tr>
+	<tr><th align="left">10. Октябрь</th><th></th><th></th><th></th><th></th></tr>
+	<tr><th align="left">11. Ноябрь</th><th></th><th></th><th></th><th></th></tr>
+	<tr><th align="left">12. Декабрь</th><th></th><th></th><th></th><th></th></tr>
+</table>
+</p>
+Точное время: <span id="time_sntp">~sntp_time~</span>&nbsp;(~sntp_status~)<br>
+Время включения: <span id="timerst">~sys_mactime~</span><br>
+Питание: <span title="Vdd" id="syspower">?</span> В<br>
+</div>
+~inc:footer.inc~
+~inc:vdd.inc~
+~inc:time.inc~
+<script type="text/javascript">
+var row = 1;
+function fill_table(T1, T2, TA) {
+	var r = document.all.power_arch.rows[row++];
+	r.cells[1].innerHTML = (T1 / 1000).toFixed(3);
+	r.cells[1].align = "right";
+	r.cells[2].innerHTML = (T2 / 1000).toFixed(3);
+	r.cells[2].align = "right";
+	r.cells[3].innerHTML = (TA / 1000).toFixed(3);
+	r.cells[3].align = "right";
+	r.cells[4].innerHTML = ((T1 / 1000) * ~cfg_glo_tarif1~ + (T2 / 1000) * ~cfg_glo_tarif2~).toFixed(2);
+	r.cells[4].align = "right";
+}
+fill_table(~PWMT_arPY1~, ~PWMT_arPY2~, ~PWMT_arPY~);
+fill_table(~PWMT_arY1~, ~PWMT_arY2~, ~PWMT_arY~);
+
+fill_table(~PWMT_arM11~, ~PWMT_arM21~, ~PWMT_arMA1~);
+fill_table(~PWMT_arM12~, ~PWMT_arM22~, ~PWMT_arMA2~);
+fill_table(~PWMT_arM13~, ~PWMT_arM23~, ~PWMT_arMA3~);
+fill_table(~PWMT_arM14~, ~PWMT_arM24~, ~PWMT_arMA4~);
+fill_table(~PWMT_arM15~, ~PWMT_arM25~, ~PWMT_arMA5~);
+fill_table(~PWMT_arM16~, ~PWMT_arM26~, ~PWMT_arMA6~);
+fill_table(~PWMT_arM17~, ~PWMT_arM27~, ~PWMT_arMA7~);
+fill_table(~PWMT_arM18~, ~PWMT_arM28~, ~PWMT_arMA8~);
+fill_table(~PWMT_arM19~, ~PWMT_arM29~, ~PWMT_arMA9~);
+fill_table(~PWMT_arM110~, ~PWMT_arM210~, ~PWMT_arMA10~);
+fill_table(~PWMT_arM111~, ~PWMT_arM211~, ~PWMT_arMA11~);
+fill_table(~PWMT_arM112~, ~PWMT_arM212~, ~PWMT_arMA12~);
+</script>
+</body></html>

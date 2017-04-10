@@ -1584,20 +1584,31 @@ void ICACHE_FLASH_ATTR web_int_callback(TCP_SERV_CONN *ts_conn, uint8 *cstr)
 		tot = rom_xstrcmp(cstr, "T1") ? tot1 : rom_xstrcmp(cstr, "T2") ? tot - tot1 : tot;
 		tcp_puts("%u.%03u", tot / 1000, tot % 1000);
 	}
-	else ifcmp("PWMT_") { // "PWMT_?n", n = array idx
+	else ifcmp("PWMT_") {
 		cstr += 5;
 		ifcmp("conn_st") tcp_puts("%u", pwmt_connect_status);
 		else ifcmp("last_resp") tcp_puts("%u", pwmt_last_response);
 		else ifcmp("qlen") tcp_puts("%u", uart_queue_len);
 		else ifcmp("errs") tcp_puts("%u", pwmt_read_errors);
-		else ifcmp("arch_") {
-			cstr += 5;
+		else ifcmp("ar") {
+			cstr += 2;
 			ifcmp("Td1") tcp_puts("%u", pwmt_arch.Today_T1);
 			else ifcmp("Td") tcp_puts("%u", pwmt_arch.Today);
 			else ifcmp("T1") tcp_puts("%u", pwmt_arch.Total_T1);
 			else ifcmp("T") tcp_puts("%u", pwmt_arch.Total);
+			else ifcmp("PY2") tcp_puts("%u", pwmt_arch.PrevYear - pwmt_arch.PrevYear_T1);
+			else ifcmp("PY1") tcp_puts("%u", pwmt_arch.PrevYear_T1);
+			else ifcmp("PY") tcp_puts("%u", pwmt_arch.PrevYear);
+			else ifcmp("Y2") tcp_puts("%u", pwmt_arch.ThisYear - pwmt_arch.ThisYear_T1);
+			else ifcmp("Y1") tcp_puts("%u", pwmt_arch.ThisYear_T1);
+			else ifcmp("Y") tcp_puts("%u", pwmt_arch.ThisYear);
+			else ifcmp("M") {
+				cstr++;
+				uint8 i = atoi(cstr+1) - 1;
+				if(i < 12) tcp_puts("%u", *cstr == '2' ? pwmt_arch.Month[i][0] - pwmt_arch.Month[i][1] : pwmt_arch.Month[i][*cstr == '1']);
+			}
 		}
-		else {
+		else { // "PWMT_?n", n = array idx
 			uint8 i = atoi(cstr+1);
 			char c = *cstr;
 			if(c == 'P') tcp_puts("%d", pwmt_cur.P[i]);

@@ -20,6 +20,7 @@
 #include "sdk/libmain.h"
 #include "driver/eeprom.h"
 #include "hw/gpio_register.h"
+#include "wifi.h"
 #include "wifi_events.h"
 #include "power_meter.h"
 #include "iot_cloud.h"
@@ -98,9 +99,11 @@ void ICACHE_FLASH_ATTR update_cnt_timer_func(void) // repeat every 1 sec
 	if(!(pwmt_cur.Time && (pwmt_cur.Time >= fram_store.ByMin.LastTime + TIME_STEP_SEC))) return; // dont passed 1 min
 	if(wifi_station_get_connect_status() == STATION_GOT_IP && !flg_open_all_service) {// some problems with wifi st here
 		wifi_station_disconnect();
+		wifi_set_opmode_current(WIFI_DISABLED);
 		#ifdef DEBUG_TO_RAM
 			dbg_printf("WiFiR %u\n", dbg_next_time());
 		#endif
+		wifi_set_opmode_current(wificonfig.b.mode);
 		wifi_station_connect();
 	}
 	#if DEBUGSOO > 3

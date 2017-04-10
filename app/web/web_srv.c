@@ -1306,6 +1306,12 @@ xEnd:
 	os_free(tmpbuf);
 	return 0;
 }
+void ICACHE_FLASH_ATTR Do_Reset(uint32 fl)
+{
+	wifi_set_opmode_current(WIFI_DISABLED);
+	ets_isr_mask(0xFFFFFFFF);
+	_ResetVector();
+}
 // OTA
 
 LOCAL int ICACHE_FLASH_ATTR upload_boundary(TCP_SERV_CONN *ts_conn) // HTTP_UPLOAD pupload, uint8 pstr, uint16 len)
@@ -1618,7 +1624,7 @@ xfirmware_file_err:				if(isWEBFSLocked) return 400;
 							#error SYS_CONST > MAX_SYS_CONST_BLOCK
 						#endif
 						if(OTA_write_header(1)) return 500; // prepare OTA header
-						web_conn->web_disc_cb = (web_func_disc_cb)_ResetVector; // reset
+						web_conn->web_disc_cb = (web_func_disc_cb)Do_Reset; // reset
 					} else if(!isWEBFSLocked) { // WebFS OK
 						SetSCB(SCB_REDIR);
 						rom_xstrcpy(pupload->filename, disk_ok_filename); // os_memcpy(pupload->filename,"/disk_ok.htm\0",13);
@@ -1746,6 +1752,7 @@ xfirmware_file_err:				if(isWEBFSLocked) return 400;
 	};
 	return 0; //
 }
+
 //-----------------------------------------------------------------------------
 // web_rx_buf
 //
