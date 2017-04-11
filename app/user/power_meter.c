@@ -96,7 +96,7 @@ void ICACHE_FLASH_ATTR update_cnts(time_t time) // 1 minute passed
 
 void ICACHE_FLASH_ATTR update_cnt_timer_func(void) // repeat every 1 sec
 {
-	if(!(pwmt_cur.Time && (pwmt_cur.Time >= fram_store.ByMin.LastTime + TIME_STEP_SEC))) return; // dont passed 1 min
+	if(!(pwmt_cur.Time && (pwmt_cur.Time >= fram_store.ByMin.LastTime + TIME_STEP_SEC)) || FRAM_Status) return; // dont passed 1 min
 	if(wifi_station_get_connect_status() == STATION_GOT_IP && !flg_open_all_service) {// some problems with wifi st here
 		wifi_station_disconnect();
 		wifi_set_opmode_current(WIFI_DISABLED);
@@ -142,9 +142,7 @@ void ICACHE_FLASH_ATTR update_cnt_timer_func(void) // repeat every 1 sec
 		#if DEBUGSOO > 4
 			os_printf("New day: %u != %u\n", fram_store.LastDay, pwmt_arch.DayLastRead);
 		#endif
-		if(pwmt_arch.DayLastRead - fram_store.LastDay > ArrayByDaySize / sizeof(ArrayByDayElement)) { // Init - days more than array size
-			power_meter_clear_all_data(2);
-			fram_store.PtrCurrentByDay = 0;
+		if(pwmt_arch.DayLastRead - fram_store.LastDay > 365) { // Init - days more than 1 year
 			fram_store.LastDay = pwmt_arch.DayLastRead - 1;
 		}
 		if(pwmt_arch.DayLastRead - fram_store.LastDay == 1) {
@@ -241,14 +239,14 @@ void ICACHE_FLASH_ATTR user_initialize(uint8 index)
 			cfg_glo.csv_delimiter_total = ';';
 			cfg_glo.csv_delimiter_total_dec = ',';
 			//cfg_glo.PulsesPer0_01KWt = 10; // 1000 per KWt
-			cfg_glo.request_period = 10;
-			cfg_glo.page_refresh_time = 5000;
+			cfg_glo.request_period = 30;
+			cfg_glo.page_refresh_time = 30000;
 			cfg_glo.TimeMaxMismatch = 0; //5; // sec
 			cfg_glo.TimeT1Start = 700;
 			cfg_glo.TimeT1End = 2300;
 			cfg_glo.pwmt_read_timeout = 5000; // us
 			cfg_glo.pwmt_response_timeout = 150000; // us
-			cfg_glo.pwmt_delay_after_err = 10000000; // us
+			cfg_glo.pwmt_delay_after_err = 100000000; // us
 			uint8 j,i;
 			for(j = 0; j < sizeof(cfg_glo.Pass) / sizeof(cfg_glo.Pass[0]); j++)
 				for(i = 0; i < sizeof(cfg_glo.Pass[0]); i++) cfg_glo.Pass[j][i] = j+1; // A:.....2
@@ -310,6 +308,10 @@ void ICACHE_FLASH_ATTR power_meter_clear_all_data(uint8 mask)
 		}
 	}
 	if(mask & 2) {
+		fram_store.LastDay = 0;
+		fram_store.LastTotal = 0;
+		fram_store.LastTotal_T1 = 0;
+		fram_store.PtrCurrentByDay = 0;
 		if(spi_flash_erase_sector(ArrayByDayStart / flashchip_sector_size) != SPI_FLASH_RESULT_OK) {
 			#if DEBUGSOO > 4
 				os_printf("\nError erase: %Xh\n", ArrayOfCntsStart);
@@ -322,6 +324,7 @@ void ICACHE_FLASH_ATTR power_meter_clear_all_data(uint8 mask)
 		}
 	}
 	if(mask & 4) {
+		os_memset(&fram_store.ByMin, 0, sizeof(fram_store.ByMin));
 		if(spi_flash_erase_sector(ArrayOfCntsStart / flashchip_sector_size) != SPI_FLASH_RESULT_OK) {
 			#if DEBUGSOO > 4
 				os_printf("\nError erase3: %Xh\n", ArrayOfCntsStart);

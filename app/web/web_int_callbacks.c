@@ -479,7 +479,7 @@ typedef struct {
 void ICACHE_FLASH_ATTR web_get_history_put_csv_str(WEB_SRV_CONN *web_conn, history_output *hst, time_t Time, uint32_t num)
 {
 	char dd;
-	if(hst->OutType & HST_TotalCnt) Time -= 60; // TotalCnt
+	if(hst->OutType & HST_TotalCnt) Time--; // TotalCnt
 	struct tm tm;
 	_localtime(&Time, &tm);
 	if(hst->OutType & HST_ByHour) {
@@ -488,7 +488,7 @@ void ICACHE_FLASH_ATTR web_get_history_put_csv_str(WEB_SRV_CONN *web_conn, histo
 		tcp_puts("%04d-%02d-%02d %02d:%02d:00", 1900+tm.tm_year, 1+tm.tm_mon, tm.tm_mday, tm.tm_hour, tm.tm_min);
 	}
 #if DEBUGSOO > 4
-	os_printf("%02d.%02d.%04d %02d:%02d:%02d(%u)\n", tm.tm_mday, 1+tm.tm_mon, 1900+tm.tm_year, tm.tm_hour, tm.tm_min, tm.tm_sec, Time);
+	os_printf("%02d.%02d.%04d %02d:%02d:%02d\n", tm.tm_mday, 1+tm.tm_mon, 1900+tm.tm_year, tm.tm_hour, tm.tm_min, tm.tm_sec);
 #endif
 	if(hst->OutType & HST_TotalCnt) {
 		dd = cfg_glo.csv_delimiter_total_dec;
@@ -501,7 +501,7 @@ void ICACHE_FLASH_ATTR web_get_history_put_csv_str(WEB_SRV_CONN *web_conn, histo
 
 // Output history by 1 min from last record to previous,
 // web_conn->udata_start - flags
-// web_conn->udata_stop - how many minutes out, if minutes = 0 - all records
+// web_conn->udata_stop - how many minutes out
 // yyyy-mm-dd hh:mm:00,n
 void ICACHE_FLASH_ATTR web_get_history(TCP_SERV_CONN *ts_conn)
 {
@@ -546,19 +546,28 @@ void ICACHE_FLASH_ATTR web_get_history(TCP_SERV_CONN *ts_conn)
     		goto xContinueByHour;
     	}
     }
+    uint32 addr_last = 0;
 	while(hst->minutes) {
-		if(hst->PtrCurrent == 0) hst->PtrCurrent = ArrayOfCntsSize;
-		hst->PtrCurrent -= ArrayOfCntsElement;
+		if(hst->PtrCurrent == 0) hst->PtrCurrent = ArrayOfCntsSize; else hst->PtrCurrent -= ArrayOfCntsElement;
 		if(hst->PtrCurrent == fram_store.ByMin.PtrCurrent) break; // cycled
 		uint32 addr = ArrayOfCntsStart + hst->PtrCurrent;
-   		if(spi_flash_read_max(addr & ~3, (uint32_t *)&arrcnt, 4) != SPI_FLASH_RESULT_OK) {
-   			#if DEBUGSOO > 2
-   				os_printf("Err SPIRead %u\n", addr);
-   			#endif
-			break;
-   		}
+		if(((addr ^ addr_last) & ~3)) {
+			if(spi_flash_read_max(addr & ~3, (uint32_t *)&arrcnt, 4) != SPI_FLASH_RESULT_OK) {
+				#if DEBUGSOO > 2
+					os_printf("Err SPIRead %u\n", addr);
+				#endif
+				break;
+			}
+			#if DEBUGSOO > 4
+				os_printf("%x=%x", addr, arrcnt.u32);
+			#endif
+			addr_last = addr;
+		}
 		if(arrcnt.u32 == 0xFFFFFFFF) break; // end of array
    		uint16 num = arrcnt.u16[(addr & 3) / ArrayOfCntsElement];
+		#if DEBUGSOO > 4
+			os_printf("(%u) ", num);
+		#endif
 		if((system_get_time() - wtimer > 100000 && web_conn->msgbuflen)
 				|| web_conn->msgbuflen + 72 > web_conn->msgbufsize) { // overflow or timer > 100000us and buffer is not empty
 			#if DEBUGSOO > 4

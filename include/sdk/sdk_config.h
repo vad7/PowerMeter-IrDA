@@ -1,6 +1,8 @@
 #ifndef _sdk_config_h_
 #define _sdk_config_h_
 
+//#define DEF_SDK_VERSION 2000
+//#define SDK_VERSION_TXT "2.0.0"
 #define DEF_SDK_VERSION 1540 // 1302 // ver 1.3.0 + patch (lib_1.3.0_deep_sleep_plus_freq_offset_plus_freedom_callback_02.zip SDK ver: 1.3.0 compiled @ Aug 19 2015 17:50:07)
 #define SDK_VERSION_TXT "1.5.4"
 
@@ -44,10 +46,10 @@
 	#endif
 #endif
 
-#if DEF_SDK_VERSION >= 2000
+//#if DEF_SDK_VERSION >= 2000
 // замена user_rf_cal_sector_set()
-#define DEF_RF_CAL_SEC (128-5) // сектор сохранения калибровок WiFi faddr = 0x7B000
-#endif
+//#define DEF_RF_CAL_SEC (128-5) // сектор сохранения калибровок WiFi faddr = 0x7B000
+//#endif
 
 //#define USE_READ_ALIGN_ISR // побайтный доступ к IRAM и cache Flash через EXCCAUSE_LOAD_STORE_ERROR
 

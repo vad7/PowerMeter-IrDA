@@ -63,7 +63,7 @@ struct s_wifi_store { // WiFi config flash addr: flashchip->chip_size - 0x3000 o
 	uint8	field_276[32];	//+276
 	uint8	field_308;		//+308
 	uint8	wfchl;			//+309
-	uint8	field_310;		//+310
+	AUTH_MODE	authmode;	//+310
 	uint8	field_311;		//+311
 	uint8	field_312;		//+312
 	uint8	field_313;		//+313

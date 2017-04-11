@@ -357,7 +357,11 @@ xfram_save:		eeprom_write_block(0, (uint8 *)&fram_store, sizeof(fram_store));
 			else ifcmp("T1St") cfg_glo.TimeT1Start = val;
 			else ifcmp("T1En") cfg_glo.TimeT1End = val;
 			else ifcmp("refresh_t") cfg_glo.page_refresh_time = val;
-			else ifcmp("req_period") cfg_glo.request_period = val;
+			else ifcmp("req_period") {
+				uint8 reinit = cfg_glo.request_period != val;
+				cfg_glo.request_period = val;
+				if(reinit) irda_init();
+			}
 			else ifcmp("time_maxmism") cfg_glo.TimeMaxMismatch = val;
 			else ifcmp("pwmt_tout") cfg_glo.pwmt_response_timeout = val;
 	        else ifcmp("pwmt_rtout") cfg_glo.pwmt_read_timeout = val;
@@ -372,7 +376,7 @@ xfram_save:		eeprom_write_block(0, (uint8 *)&fram_store, sizeof(fram_store));
 				if(i <= 1) cfg_glo.Tariffs[i] = atoi_z(pvar, 1);
 			}
 			else ifcmp("reset_data") { // all='RESET', mask='RESETn', n = 1|2|4
-				if(os_strcmp(pvar, "RESET") == 0) power_meter_clear_all_data(pvar[5] >= '0' ? ahextoul(pvar + 5) : 0xFF);
+				if(rom_xstrcmp(pvar, "RESET")) power_meter_clear_all_data(pvar[5] >= '0' ? ahextoul(pvar + 5) : 0xFF);
 			}
 			else ifcmp("save") {
 				if(val == 1) {
