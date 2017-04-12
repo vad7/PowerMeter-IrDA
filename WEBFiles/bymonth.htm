@@ -1,31 +1,37 @@
 <!DOCTYPE html>
 <html><head>
-	<meta http-equiv="Content-type" content="text/html; charset=utf-8">
-	<title>Счетчик электроэнергии</title>
-	<link rel="stylesheet" href="/style.css">
-	<script src="/site.js"></script>
-</head><body>
+<meta http-equiv="Content-type" content="text/html; charset=utf-8">
+<title>Счетчик электроэнергии</title>
+<link rel="stylesheet" href="/style.css">
+<script src="/site.js"></script>
+<style>
+svg {
+	font: 9px sans-serif;
+}
+.axis path,
+.axis line {
+	fill: none;
+	stroke: #000;
+	shape-rendering: crispEdges;
+}
+</style>
+<script type="text/javascript" src="http://d3js.org/d3.v3.js"></script>
+</head>
+<body>
 ~inc:menumain.inc~
 <div class="content">
 <p class="center">
 <table id="power_arch" class="mdbtab">
 	<tr><th width="24%">Архив, кВт*ч</th><th width="19%">T1 (День)</th><th width="19%">T2 (Ночь)</th><th width="19%">Итого</th><th width="19%">Сумма, руб.</th></tr>
-	<tr><th align="left">Предыдущий год</th><th></th><th></th><th></th><th></th></tr>
-	<tr><th align="left">Этот год</th><th></th><th></th><th></th><th></th></tr>
-	<tr><th align="left">&#8199;1. Январь</th><th></th><th></th><th></th><th></th></tr>
-	<tr><th align="left">&#8199;2. Февраль</th><th></th><th></th><th></th><th></th></tr>
-	<tr><th align="left">&#8199;3. Март</th><th></th><th></th><th></th><th></th></tr>
-	<tr><th align="left">&#8199;4. Апрель</th><th></th><th></th><th></th><th></th></tr>
-	<tr><th align="left">&#8199;5. Май</th><th></th><th></th><th></th><th></th></tr>
-	<tr><th align="left">&#8199;6. Июнь</th><th></th><th></th><th></th><th></th></tr>
-	<tr><th align="left">&#8199;7. Июль</th><th></th><th></th><th></th><th></th></tr>
-	<tr><th align="left">&#8199;8. Август</th><th></th><th></th><th></th><th></th></tr>
-	<tr><th align="left">&#8199;9. Сентябрь</th><th></th><th></th><th></th><th></th></tr>
-	<tr><th align="left">10. Октябрь</th><th></th><th></th><th></th><th></th></tr>
-	<tr><th align="left">11. Ноябрь</th><th></th><th></th><th></th><th></th></tr>
-	<tr><th align="left">12. Декабрь</th><th></th><th></th><th></th><th></th></tr>
 </table>
 </p>
+<div class="center">
+	<form>
+		<label><input type="radio" name="mode" value="stacked"> В один столбец</label>
+		<label><input type="radio" name="mode" value="grouped"> Рядом</label>
+	</form>
+	<div id="chart-svg"></div>
+</div>
 Точное время: <span id="time_sntp">~sntp_time~</span>&nbsp;(~sntp_status~)<br>
 Время включения: <span id="timerst">~sys_mactime~</span><br>
 Питание: <span title="Vdd" id="syspower">?</span> В<br>
@@ -34,32 +40,211 @@
 ~inc:vdd.inc~
 ~inc:time.inc~
 <script type="text/javascript">
-var row = 1;
-function fill_table(T1, T2, TA) {
-	var r = document.all.power_arch.rows[row++];
-	r.cells[1].innerHTML = (T1 / 1000).toFixed(3);
-	r.cells[1].align = "right";
-	r.cells[2].innerHTML = (T2 / 1000).toFixed(3);
-	r.cells[2].align = "right";
-	r.cells[3].innerHTML = (TA / 1000).toFixed(3);
-	r.cells[3].align = "right";
-	r.cells[4].innerHTML = ((T1 / 1000) * ~cfg_glo_tarif1~ + (T2 / 1000) * ~cfg_glo_tarif2~).toFixed(2);
-	r.cells[4].align = "right";
+var div = 1000.0;
+var data = [
+{time: "01. Январь",  "День": ~PWMT_arM11~, "Ночь": ~PWMT_arM21~},
+{time: "02. Февраль", "День": ~PWMT_arM12~, "Ночь": ~PWMT_arM22~},
+{time: "03. Март",	  "День": ~PWMT_arM13~, "Ночь": ~PWMT_arM23~},
+{time: "04. Апрель",  "День": ~PWMT_arM14~, "Ночь": ~PWMT_arM24~},
+{time: "05. Май",	  "День": ~PWMT_arM15~, "Ночь": ~PWMT_arM25~},
+{time: "06. Июнь",	  "День": ~PWMT_arM16~, "Ночь": ~PWMT_arM26~},
+{time: "07. Июль",	  "День": ~PWMT_arM17~, "Ночь": ~PWMT_arM27~},
+{time: "08. Август",  "День": ~PWMT_arM18~, "Ночь": ~PWMT_arM28~},
+{time: "09. Сентябрь","День": ~PWMT_arM19~, "Ночь": ~PWMT_arM29~},
+{time: "10. Октябрь", "День": ~PWMT_arM110~, "Ночь": ~PWMT_arM210~},
+{time: "11. Ноябрь",  "День": ~PWMT_arM111~, "Ночь": ~PWMT_arM211~},
+{time: "12. Декабрь", "День": ~PWMT_arM112~, "Ночь": ~PWMT_arM212~}];
+function table_add_row(Name, T1, T2) {
+	var r = document.all.power_arch.insertRow(-1);
+	var c = r.insertCell(-1);
+	c.innerHTML = Name;
+	c.align = "left";
+	c = r.insertCell(-1);
+	c.innerHTML = (T1 / div).toFixed(3); c.align = "right";
+	c = r.insertCell(-1);
+	c.innerHTML = (T2 / div).toFixed(3); c.align = "right";
+	c = r.insertCell(-1);
+	c.innerHTML = ((T1 + T2) / div).toFixed(3); c.align = "right";
+	c = r.insertCell(-1);
+	c.innerHTML = ((T1 / div) * ~cfg_glo_tarif1~ + (T2 / div) * ~cfg_glo_tarif2~).toFixed(2); c.align = "right";
 }
-fill_table(~PWMT_arPY1~, ~PWMT_arPY2~, ~PWMT_arPY~);
-fill_table(~PWMT_arY1~, ~PWMT_arY2~, ~PWMT_arY~);
+table_add_row("Предыдущий год", ~PWMT_arPY1~, ~PWMT_arPY2~);
+table_add_row("Этот год", ~PWMT_arY1~, ~PWMT_arY2~);
+var r = document.all.power_arch.insertRow(-1);
+r.insertCell(-1); r.insertCell(-1); r.insertCell(-1); r.insertCell(-1); r.insertCell(-1);
+for(var i=0; i<data.length; i++){
+	table_add_row(data[i].time, data[i]["День"], data[i]["Ночь"]);
+	data[i]["День"] /= div;
+	data[i]["Ночь"] /= div;
+}
+var nLayers = 2;
 
-fill_table(~PWMT_arM11~, ~PWMT_arM21~, ~PWMT_arMA1~);
-fill_table(~PWMT_arM12~, ~PWMT_arM22~, ~PWMT_arMA2~);
-fill_table(~PWMT_arM13~, ~PWMT_arM23~, ~PWMT_arMA3~);
-fill_table(~PWMT_arM14~, ~PWMT_arM24~, ~PWMT_arMA4~);
-fill_table(~PWMT_arM15~, ~PWMT_arM25~, ~PWMT_arMA5~);
-fill_table(~PWMT_arM16~, ~PWMT_arM26~, ~PWMT_arMA6~);
-fill_table(~PWMT_arM17~, ~PWMT_arM27~, ~PWMT_arMA7~);
-fill_table(~PWMT_arM18~, ~PWMT_arM28~, ~PWMT_arMA8~);
-fill_table(~PWMT_arM19~, ~PWMT_arM29~, ~PWMT_arMA9~);
-fill_table(~PWMT_arM110~, ~PWMT_arM210~, ~PWMT_arMA10~);
-fill_table(~PWMT_arM111~, ~PWMT_arM211~, ~PWMT_arMA11~);
-fill_table(~PWMT_arM112~, ~PWMT_arM212~, ~PWMT_arMA12~);
+var margin = {top: 45, right: 10, bottom: 80, left: 50},
+	width = 630 - margin.left - margin.right,
+	height = 300 - margin.top - margin.bottom;
+
+var svg = d3.select("#chart-svg").append("svg")
+	.attr("width", width + margin.left + margin.right)
+	.attr("height", height + margin.top + margin.bottom)
+	.append("g")
+	.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+	var headers = d3.keys(data[0]);
+	headers.shift();
+
+	var layers = d3.layout.stack()(headers.map(function(Range) {
+		return data.map(function(d) {
+		  return {x: d.time, y: +d[Range]};
+		});
+	}));
+	
+	var yGroupMax = d3.max(layers, function(layer) { return d3.max(layer, function(d) { return d.y; }); });
+	var yStackMax = d3.max(layers, function(layer) { return d3.max(layer, function(d) { return d.y0 + d.y; }); });
+
+	var xScale = d3.scale.ordinal()
+		.domain(layers[0].map(function(d) { return d.x; }))
+		.rangeRoundBands([25, width], .08);
+
+	var y = d3.scale.linear()
+		.domain([0, yStackMax])
+		.range([height, 0]);
+
+	var color = d3.scale.ordinal()
+		.domain(headers)
+		.range(["steelblue", "green"]);
+	  
+	var xAxis = d3.svg.axis()
+		.scale(xScale)
+		.tickPadding(6)
+		.orient("bottom");
+
+	var yAxis = d3.svg.axis()
+		.scale(y)
+		.orient("left");
+
+	var layer = svg.selectAll(".layer")
+		.data(layers)
+		.enter().append("g")
+		.attr("class", "layer")
+		.style("fill", function(d, i) { return color(i); });
+
+	var rect = layer.selectAll("rect")
+		.data(function(d) { return d; })
+		.enter().append("rect")
+		.attr("x", function(d) { return xScale(d.x); })
+		.attr("y", height)
+		.attr("width", xScale.rangeBand())
+		.attr("height", 0);
+
+	rect.transition()
+		.delay(function(d, i) { return i * 10; })
+		.attr("y", function(d) { return y(d.y0 + d.y); })
+		.attr("height", function(d) { return y(d.y0) - y(d.y0 + d.y); });
+
+	svg.append("g")
+		.attr("class", "x axis")
+		.attr("transform", "translate(0," + height + ")")
+		.call(xAxis)
+		.selectAll("text").style("text-anchor", "end")
+			.attr("dx", "-.8em")
+			.attr("dy", ".15em")
+			.attr("transform", function(d) {
+				  return "rotate(-45)" 
+				});
+	
+	svg.append("g")
+		.attr("class", "y axis")
+		.attr("transform", "translate(20,0)")
+		.call(yAxis)
+	  .append("text")
+		.attr({"x": -30, "y": height + 20})
+		.attr("dy", ".50em")
+		.style("text-anchor", "end")
+		.text("кВт*ч");
+
+	if(headers.length > 1) {
+	  var legend = svg.selectAll(".legend")
+		.data(headers.slice().reverse())
+			.enter().append("g")
+			.attr("class", "legend")
+			.attr("transform", function(d, i) { return "translate(-10," + (-margin.top + i * 20) + ")"; });
+	   
+		legend.append("rect")
+			.attr("x", width - 18)
+			.attr("width", 18)
+			.attr("height", 18)
+			.style("fill", color);
+	
+		legend.append("text")
+			  .attr("x", width - 24)
+			  .attr("y", 9)
+			  .attr("dy", ".35em")
+			  .style("text-anchor", "end")
+			  .text(function(d) { return d;  });
+	}
+
+	d3.selectAll("input[name='mode']").on("change", change);
+
+//	var timeout = setTimeout(function() { d3.select("input[value='grouped']").property("checked", true).each(change); }, 2000);
+	d3.select("input[value='stacked']").property("checked", true);
+
+	function change() {
+	  //clearTimeout(timeout);
+	  if(this.value === "grouped") transitionGrouped();
+	  else transitionStacked();
+	}
+
+	function transitionGrouped() {
+	  y.domain([0, yGroupMax]);
+
+	  rect.transition()
+		  .duration(300)
+		  .delay(function(d, i) { return i * 10; })
+		  .attr("x", function(d, i, j) { return xScale(d.x) + xScale.rangeBand() / nLayers * j; })
+		  .attr("width", xScale.rangeBand() / nLayers)
+		.transition()
+		  .attr("y", function(d) { return y(d.y); })
+		  .attr("height", function(d) { return height - y(d.y); });
+	  svg.selectAll("g.y.axis")
+        .call(yAxis);
+	};
+
+	function transitionStacked() {
+	  y.domain([0, yStackMax]);
+
+	  rect.transition()
+		  .duration(300)
+		  .delay(function(d, i) { return i * 10; })
+		  .attr("y", function(d) { return y(d.y0 + d.y); })
+		  .attr("height", function(d) { return y(d.y0) - y(d.y0 + d.y); })
+		.transition()
+		  .attr("x", function(d) { return xScale(d.x); })
+		  .attr("width", xScale.rangeBand());
+	  svg.selectAll("g.y.axis")
+        .call(yAxis);
+	};
+
+    var tooltip = svg.append("g")
+        .attr("class", "tooltip");
+        
+    tooltip.append("text")
+        .attr("x", 15)
+        .attr("dy", "1.2em")
+        .style("text-anchor", "middle")
+        .attr("font-size", "12px")
+        .attr("font-weight", "bold");
+
+	rect.on("mouseover", function() { 
+			tooltip.style("display", "inline-block");
+		})
+		.on("mouseout", function() {
+			tooltip.style("display", "none");
+		})
+		.on("mousemove", function(d) {
+			var xPosition = d3.mouse(this)[0] - 15;
+			var yPosition = d3.mouse(this)[1] - 25;
+			tooltip.attr("transform", "translate(" + xPosition + "," + yPosition + ")");
+			tooltip.select("text").text(d.y);
+		});
 </script>
 </body></html>

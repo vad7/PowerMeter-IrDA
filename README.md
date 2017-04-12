@@ -4,6 +4,7 @@
 Web server based on esp8266 with IrDA interface to power meter (Mercury 230/231 AT).<br>
 Over-The-Air firmware updating.
 ---
+Подробно здесь: [vad-7.blogspot.ru](http://vad-7.blogspot.ru/2017/03/mercury231.html)
 
 Возможности:
 Получение данных со многотарифных счетчиков Меркурий 231 АТ (230) через инфракрасный порт.<br>
@@ -29,6 +30,8 @@ Over-The-Air firmware updating.
 ![alt tag](https://github.com/vad7/PowerMeter-IrDA/blob/master/Web4_2.jpg)
 
 ![alt tag](https://github.com/vad7/PowerMeter-IrDA/blob/master/Web5.jpg)
+
+![alt tag](https://github.com/vad7/PowerMeter-IrDA/blob/master/Web6.jpg)
 
 Schematic: 
 
