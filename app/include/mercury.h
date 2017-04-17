@@ -56,6 +56,7 @@ uint8 pwmt_command_response_status; // 0xFF - waiting, otherwise pwmt_last_respo
 #define PWMT_REPEAT_CNT 3		// attempts when error
 uint8 pwmt_repeat_on_error_cnt;
 uint32 pwmt_read_errors; // total count read error pwmt
+uint8 pwmt_time_was_corrected_today;
 
 typedef enum
 {
@@ -82,7 +83,8 @@ typedef enum
 	URT_4N,		// Numeric 30bites, 4 Bytes (2B, 1B, 4B, 3B) (nnnnnnnnnn)
 	URT_TIME,	// 6 bytes (BCD): сек, мин, час, число, месяц, год
 	URT_CURTIME,// 8 bytes (BCD): cек, мин, час, день недели, число, месяц, год, зима(1)/лето(0)
-	URT_STR		// char array
+	URT_STR,	// char array
+	URT_SETTIME
 } UART_RECORD_TYPE;
 
 typedef struct {

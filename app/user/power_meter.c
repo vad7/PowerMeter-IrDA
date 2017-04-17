@@ -137,6 +137,7 @@ void ICACHE_FLASH_ATTR update_cnt_timer_func(void) // repeat every 1 sec
 	uint16 save_size = sizeof(fram_store.ByMin);
 	// By day array
 	if(pwmt_arch.DayLastRead && pwmt_arch.DayLastRead > fram_store.LastDay) { // new day
+		pwmt_time_was_corrected_today = 0;
 		ArrayByDayElement fram_bydays_elem; // TAll, T1
 		save_size = sizeof(fram_store);
 		#if DEBUGSOO > 4
@@ -256,7 +257,8 @@ void ICACHE_FLASH_ATTR user_initialize(uint8 index)
 		LastCnt = 0;
 		LastCnt_Previous = -1;
 		sntp_time_adjust = cfg_glo.TimeAdjust;
-		Web_ChartMaxDays = 7;
+		Web_ChartMaxDays = 31;
+		Web_ChMD = 3;
 		Web_ShowBy = 0;
 		#if DEBUGSOO > 3
 			os_printf("FSize=%u, CntSize=%u\n", cfg_glo.Fram_Size, ArrayOfCntsSize);
