@@ -53,7 +53,6 @@ uint8 pwmt_command_send_len;
 uint8 pwmt_command_response[16]; // last response on custom send
 uint8 pwmt_command_response_len;
 uint8 pwmt_command_response_status; // 0xFF - waiting, otherwise pwmt_last_response
-#define PWMT_REPEAT_CNT 3		// attempts when error
 uint8 pwmt_repeat_on_error_cnt;
 uint32 pwmt_read_errors; // total count read error pwmt
 uint8 pwmt_time_was_corrected_today;

@@ -106,7 +106,7 @@ static const char mem_debug_file[] ICACHE_RODATA_ATTR = __FILE__;
 #ifndef DNS_MAX_TTL
 #define DNS_MAX_TTL               604800
 #endif
-#define DNS_MIN_TTL				  3600 // 1 hour
+#define DNS_MIN_TTL				  60 //3600 // 1 hour
 
 /* DNS protocol flags */
 #define DNS_FLAG1_RESPONSE        0x80

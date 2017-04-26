@@ -1098,10 +1098,14 @@ void ICACHE_FLASH_ATTR web_int_callback(TCP_SERV_CONN *ts_conn, uint8 *cstr)
 			else ifcmp("time_maxmism") tcp_puts("%u", cfg_glo.TimeMaxMismatch);
 			else ifcmp("refresh_t") tcp_puts("%u", cfg_glo.page_refresh_time);
 			else ifcmp("req_period") tcp_puts("%u", cfg_glo.request_period);
-			else ifcmp("pwmt_rtout") tcp_puts("%u", cfg_glo.pwmt_read_timeout);
-			else ifcmp("pwmt_tout") tcp_puts("%u", cfg_glo.pwmt_response_timeout);
-			else ifcmp("pwmt_derr") tcp_puts("%u", cfg_glo.pwmt_delay_after_err);
-			else ifcmp("pwmt_addr") tcp_puts("0x%02X", cfg_glo.pwmt_address);
+			else ifcmp("pwmt_") {
+				cstr += 5;
+				ifcmp("rtout") tcp_puts("%u", cfg_glo.pwmt_read_timeout);
+				else ifcmp("tout") tcp_puts("%u", cfg_glo.pwmt_response_timeout);
+				else ifcmp("derr") tcp_puts("%u", cfg_glo.pwmt_delay_after_err);
+				else ifcmp("addr") tcp_puts("0x%02X", cfg_glo.pwmt_address);
+				else ifcmp("cerr") tcp_puts("%u", cfg_glo.pwmt_on_error_repeat_cnt);
+			}
 			else ifcmp("pass") {
 				uint8 i = atoi(cstr + 4) - 1;
 				if(i <= 1) web_int_callback_print_hexarray(web_conn, cfg_glo.Pass[i], sizeof(cfg_glo.Pass[0]));
@@ -1110,6 +1114,7 @@ void ICACHE_FLASH_ATTR web_int_callback(TCP_SERV_CONN *ts_conn, uint8 *cstr)
 				uint8 i = atoi(cstr + 5) - 1;
 				if(i <= 1) tcp_puts("%u.%02u", cfg_glo.Tariffs[i] / 100, cfg_glo.Tariffs[i] % 100);
 			}
+			else ifcmp("sntp_upd") tcp_puts("%u", cfg_glo.SNTP_update_delay_min);
 		}
 		else ifcmp("iot_") {	// cfg_
 			cstr += 4;

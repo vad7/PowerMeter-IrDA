@@ -13,27 +13,31 @@
 			<table class="form">
 				<tr>
 					<td class="label">Период опроса счетчика:</td>
-					<td><input name='cfg_glo_req_period' maxlength='10' value='~cfg_glo_req_period~'> sec</td>
+					<td><input name='cfg_glo_req_period' maxlength='10' value='~cfg_glo_req_period~'> сек</td>
 				</tr>
 				<tr>
 					<td class="label">Период обновления страницы:</td>
-					<td><input name='cfg_glo_refresh_t' maxlength='10' value='~cfg_glo_refresh_t~'> msec</td>
+					<td><input name='cfg_glo_refresh_t' maxlength='10' value='~cfg_glo_refresh_t~'> мсек</td>
 				</tr>
 				<tr>
 					<td class="label">Макс. расхождение времени:</td>
-					<td><input name='cfg_glo_time_maxmism' maxlength='10' value='~cfg_glo_time_maxmism~'> sec</td>
+					<td><input name='cfg_glo_time_maxmism' maxlength='10' value='~cfg_glo_time_maxmism~'> сек</td>
 				</tr>
 				<tr>
 					<td class="label">Таймаут доступа:</td>
-					<td><input name='cfg_glo_pwmt_rtout' maxlength='10' value='~cfg_glo_pwmt_rtout~'> us</td>
+					<td><input name='cfg_glo_pwmt_rtout' maxlength='10' value='~cfg_glo_pwmt_rtout~'> мксек</td>
 				</tr>
 				<tr>
 					<td class="label">Макс. время ответа:</td>
-					<td><input name='cfg_glo_pwmt_tout' maxlength='10' value='~cfg_glo_pwmt_tout~'> us</td>
+					<td><input name='cfg_glo_pwmt_tout' maxlength='10' value='~cfg_glo_pwmt_tout~'> мксек</td>
 				</tr>
 				<tr>
 					<td class="label">Задержка после ошибки:</td>
-					<td><input name='cfg_glo_pwmt_derr' maxlength='10' value='~cfg_glo_pwmt_derr~'> us</td>
+					<td><input name='cfg_glo_pwmt_derr' maxlength='10' value='~cfg_glo_pwmt_derr~'> мксек</td>
+				</tr>
+				<tr>
+					<td class="label">Кол-во повторов после ошибки:</td>
+					<td><input name='cfg_glo_pwmt_cerr' maxlength='10' value='~cfg_glo_pwmt_cerr~'></td>
 				</tr>
 				<tr>
 					<td class="label">Тариф Т1 (день), c:</td>
@@ -52,14 +56,12 @@
 					<td><input title='nnn.nn' name='cfg_glo_tarif2' maxlength='6' value='~cfg_glo_tarif2~'> руб.</td>
 				</tr>
 				<tr>
-					<td class="label">Подстройка времени SNTP:</td>
-					<td><input title='sec' name='cfg_glo_TAdj' maxlength='6' value='~cfg_glo_TAdj~'> sec</td>
+					<td class="label">Время SNTP каждые:</td>
+					<td><input name='cfg_glo_sntp_upd' maxlength='6' value='~cfg_glo_sntp_upd~'> минут</td>
 				</tr>
 				<tr>
-					<td class="label">Счетчик, квт*ч * ~cfg_glo_PulsesPerKWt~:
-					<input title='change?' type='checkbox' name='chg_tcnt' value='0'> 
-					</td>
-					<td><input title='0..4294967295' id='TCnt' name='cfg_glo_TotalCnt' maxlength='10' value='~TotalCnt~'>&ensp;&larr;&ensp;<input title='0.000..999999.999' id='kWt' size='8' value='0' onchange='CalcTotalCnt("TCnt","kWt")'>&nbsp;кВт*ч</td>
+					<td class="label">Подстройка времени SNTP:</td>
+					<td><input title='sec' name='cfg_glo_TAdj' maxlength='6' value='~cfg_glo_TAdj~'> сек</td>
 				</tr>
 				<tr>
 					<td class="label">Сетевой адрес счетчика:</td>
@@ -109,6 +111,12 @@
 				<tr>
 					<td class="label">Очистка данных:</td>
 					<td><input type='password' title="Enter RESETn, n: ''-all, 1-eeprom, 2-Day array, 4-Minute array" name='cfg_glo_reset_data' maxlength='10' value=''></td>
+				</tr>
+				<tr>
+					<td class="label">Счетчик, квт*ч * ~cfg_glo_PulsesPerKWt~:
+					<input title='change?' type='checkbox' name='chg_tcnt' value='0'> 
+					</td>
+					<td><input title='0..4294967295' id='TCnt' name='cfg_glo_TotalCnt' maxlength='10' value='~TotalCnt~'>&ensp;&larr;&ensp;<input title='0.000..999999.999' id='kWt' size='8' value='0' onchange='CalcTotalCnt("TCnt","kWt")'>&nbsp;кВт*ч</td>
 				</tr>
  			</table>
 			<p class="center">

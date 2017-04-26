@@ -334,13 +334,13 @@ cfg_glo_time_maxmism
 cfg_glo_pwmt_rtout
 cfg_glo_pwmt_tout
 cfg_glo_pwmt_derr
+cfg_glo_pwmt_cerr
 cfg_glo_T1St
 cfg_glo_T1En
 cfg_glo_tarif1
 cfg_glo_tarif2
+cfg_glo_sntp_upd
 cfg_glo_TAdj
-cfg_glo_PulsesPerKWt
-TotalCnt
 cfg_glo_pwmt_addr
 cfg_glo_pass1
 cfg_glo_pass2
@@ -352,6 +352,8 @@ cfg_iot_cloud_enable
 cfg_iot_ini
 cfg_glo_Fram_Size
 cfg_glo_FramFr
+cfg_glo_PulsesPerKWt
+TotalCnt
 cfg_glo_Fram_Size
 inc:footer.inc
 cfg_glo_PulsesPerKWt

@@ -337,7 +337,7 @@ void ICACHE_FLASH_ATTR web_int_vars(TCP_SERV_CONN *ts_conn, uint8 *pcmd, uint8 *
 			update_mux_txd1();
 		}
 		else ifcmp("glo_") { // cfg_
-			cstr+=4;
+			cstr += 4;
 			ifcmp("TotalCnt") {
 				fram_store.ByMin.TotalCnt = val;
 				goto xfram_save;
@@ -363,10 +363,14 @@ xfram_save:		eeprom_write_block(0, (uint8 *)&fram_store, sizeof(fram_store));
 				if(reinit) irda_init();
 			}
 			else ifcmp("time_maxmism") cfg_glo.TimeMaxMismatch = val;
-			else ifcmp("pwmt_tout") cfg_glo.pwmt_response_timeout = val;
-	        else ifcmp("pwmt_rtout") cfg_glo.pwmt_read_timeout = val;
-	        else ifcmp("pwmt_derr") cfg_glo.pwmt_delay_after_err = val;
-	        else ifcmp("pwmt_addr") cfg_glo.pwmt_address = val;
+			else ifcmp("pwmt_") {
+				cstr += 5;
+				ifcmp("tout") cfg_glo.pwmt_response_timeout = val;
+		        else ifcmp("rtout") cfg_glo.pwmt_read_timeout = val;
+		        else ifcmp("derr") cfg_glo.pwmt_delay_after_err = val;
+		        else ifcmp("addr") cfg_glo.pwmt_address = val;
+		        else ifcmp("cerr") cfg_glo.pwmt_on_error_repeat_cnt = val;
+			}
 			else ifcmp("pass") {
 	        	uint8 i = atoi(cstr + 4) - 1;
 	        	if(i <= 1) str_array_hex_byte(pvar, cfg_glo.Pass[i], sizeof(cfg_glo.Pass[0]));
@@ -374,6 +378,10 @@ xfram_save:		eeprom_write_block(0, (uint8 *)&fram_store, sizeof(fram_store));
 			else ifcmp("tarif") {
 				uint8 i = atoi(cstr + 5) - 1;
 				if(i <= 1) cfg_glo.Tariffs[i] = atoi_z(pvar, 1);
+			}
+			else ifcmp("sntp_upd") {
+				cfg_glo.SNTP_update_delay_min = val;
+				sntp_update_delay = val ? val * 60000 : 60000;
 			}
 			else ifcmp("reset_data") { // all='RESET', mask='RESETn', n = 1|2|4
 				if(rom_xstrcmp(pvar, "RESET")) power_meter_clear_all_data(pvar[5] >= '0' ? ahextoul(pvar + 5) : 0xFF);
@@ -427,7 +435,7 @@ xfram_save:		eeprom_write_block(0, (uint8 *)&fram_store, sizeof(fram_store));
 				uint8 fl = val ? 1 : 0;
 				if(fl != syscfg.cfg.b.sntp_ena) {
 					syscfg.cfg.b.sntp_ena = fl;
-					if(syscfg.cfg.b.sntp_ena) sntp_inits(UTC_OFFSET);
+					if(syscfg.cfg.b.sntp_ena) sntp_inits(UTC_OFFSET, cfg_glo.SNTP_update_delay_min);
 					else sntp_close();
 				}
 			}

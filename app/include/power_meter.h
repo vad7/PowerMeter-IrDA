@@ -41,6 +41,8 @@ typedef struct {
 	uint8	iot_cloud_enable;	// use "protect/iot_cloud.ini" to send data to iot cloud
 	uint8	pwmt_address;		// power meter network address, 0 - group
 	uint16  Tariffs[2];			// T1, T2. *100
+	uint8	pwmt_on_error_repeat_cnt;
+	uint16  SNTP_update_delay_min;
 //	char sntp_server[20];
 } CFG_GLO;
 CFG_GLO __attribute__((aligned(4))) cfg_glo;

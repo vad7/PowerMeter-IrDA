@@ -61,10 +61,11 @@
 #include "lwip/udp.h"
 #include "sntp.h"
 #include "web_utils.h"
-
 #include <string.h>
 //#include <time.h>
 //#include "localtime.h"
+#include "debug_ram.h"
+
 #if DEBUGSOO > 1
 void _localtime(time_t * tim_p, struct tm * res) ICACHE_FLASH_ATTR;
 #endif
@@ -150,11 +151,12 @@ const u8_t sntp_server_addresses[] ICACHE_RODATA_ATTR = SNTP_SERVER_ADDRESS;
  * Default is 1 hour.
  */
 #ifndef SNTP_UPDATE_DELAY
-#define SNTP_UPDATE_DELAY           3600000
+uint32  sntp_update_delay;
+#define SNTP_UPDATE_DELAY           sntp_update_delay //3600000
 #endif
-#if (SNTP_UPDATE_DELAY < 15000) && !SNTP_SUPPRESS_DELAY_CHECK
-#error "SNTPv4 RFC 4330 enforces a minimum update time of 15 seconds!"
-#endif
+//#if (SNTP_UPDATE_DELAY < 15000) && !SNTP_SUPPRESS_DELAY_CHECK
+//#error "SNTPv4 RFC 4330 enforces a minimum update time of 15 seconds!"
+//#endif
 
 /** SNTP macro to change system time and/or the update the RTC clock */
 #ifndef SNTP_SET_SYSTEM_TIME
@@ -234,6 +236,8 @@ const u8_t sntp_server_addresses[] ICACHE_RODATA_ATTR = SNTP_SERVER_ADDRESS;
 
 /* number of seconds between 1900 and 1970 */
 #define DIFF_SEC_1900_1970         (2208988800UL)
+
+#define DIFF_SEC_1970_2036         (2085978496UL)
 
 /**
  * SNTP packet format (without optional fields)
@@ -321,9 +325,10 @@ void ICACHE_FLASH_ATTR ntp_time_update(void *);
  */
 static void ICACHE_FLASH_ATTR sntp_process(u32_t *receive_timestamp) {
 /* convert SNTP time (1900-based) to unix GMT time (1970-based)
- * @todo: if MSB is 1, SNTP time is 2036-based!
+ * if MSB is 0, SNTP time is 2036-based!
  */
-	time_t t = (ntohl(receive_timestamp[0]) - DIFF_SEC_1900_1970);
+	time_t t = ntohl(receive_timestamp[0]);
+	if(t & 0x80000000UL) t -= DIFF_SEC_1900_1970; else t += DIFF_SEC_1970_2036;
 #if SNTP_CALC_TIME_US
 	u32_t us = ntohl(receive_timestamp[1]) / 4295;
 	SNTP_SET_SYSTEM_TIME_US(t, us);
@@ -343,6 +348,7 @@ static void ICACHE_FLASH_ATTR sntp_process(u32_t *receive_timestamp) {
 	_localtime(&lt, &tm);
 	os_printf("%04d-%02d-%02d %02d:%02d:%02d +%d\n", 1900+tm.tm_year, 1+tm.tm_mon, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, sntp->sntp_time_zone);
 #endif
+	dbg_printf("SNTP(%u)=%u\n", dbg_next_time(), t);
 	sntp_status = 1;
 	os_timer_disarm(&sntp->ntp_timer);
 	ets_timer_arm_new(&sntp->ntp_timer, 1000, 1, 1);
@@ -383,8 +389,6 @@ static void ICACHE_FLASH_ATTR sntp_retry(void* arg)
 	LWIP_UNUSED_ARG(arg);
 	LWIP_DEBUGF(SNTP_DEBUG_STATE, ("sntp_retry: Next request will be sent in %"U32_F" ms\n",
 		sntp->sntp_retry_timeout));
-
-	sntp_status = 0;
 
 /* set up a timer to send a retry and increase the retry delay */
 	sys_timeout(sntp->sntp_retry_timeout, sntp_request, NULL);
@@ -570,7 +574,7 @@ sntp_dns_found(const char* hostname, ip_addr_t *ipaddr, void *arg)
 		/* Address resolved, send request */
 		LWIP_DEBUGF(SNTP_DEBUG_STATE, ("sntp_dns_found: Server address resolved, sending request\n"));
 		#if DEBUGSOO > 4
-			os_printf("SNTP req to %X\n", ipaddr);
+			os_printf("SNTP req " IPSTR "\n", IP2STR(&ipaddr));
 		#endif
 		sntp_send_request(ipaddr);
 	} else {
@@ -654,7 +658,7 @@ void ICACHE_FLASH_ATTR sntp_request(void *arg)
 
 	if (err == ERR_OK) {
 		#if DEBUGSOO > 4
-			os_printf(" IP: %X\n", sntp_server_address);
+			os_printf(" IP: " IPSTR "\n", IP2STR(&sntp_server_address));
 		#endif
 		sntp_send_request(&sntp_server_address);
 	} else {
@@ -679,8 +683,9 @@ void ICACHE_FLASH_ATTR ntp_time_update(void *ignored)
  * Initialize this module.
  * Send out request instantly or after SNTP_STARTUP_DELAY.
  */
-bool ICACHE_FLASH_ATTR sntp_inits(int8_t UTC_offset)
+bool ICACHE_FLASH_ATTR sntp_inits(int8_t UTC_offset, uint16_t update_delay_min)
 {
+	sntp_update_delay = update_delay_min ? update_delay_min * 60000 : 60000;
 	if (sntp == NULL) {
 		sntp = (struct ssntp *)os_zalloc(sizeof(struct ssntp));
 		if (sntp == NULL) {
@@ -734,6 +739,7 @@ void ICACHE_FLASH_ATTR sntp_close(void)
 			os_printf("SNTP: stop\n");
 #endif
 			sys_untimeout(sntp_request, NULL);
+			sys_untimeout(sntp_try_next_server, NULL);
 			udp_remove(sntp->sntp_pcb);
 //			sntp->sntp_pcb = NULL;
 		}
@@ -759,7 +765,7 @@ time_t ICACHE_FLASH_ATTR get_sntp_localtime(void)
 // comvert local time to UTC time
 time_t ICACHE_FLASH_ATTR sntp_local_to_UTC_time(time_t local)
 {
-	return local == 0 ? 0 : local - sntp->sntp_time_zone * 3600;
+	return sntp == NULL || local == 0 ? 0 : local - sntp->sntp_time_zone * 3600;
 }
 
 void ICACHE_FLASH_ATTR sntp_set_time(time_t t)
@@ -769,10 +775,10 @@ void ICACHE_FLASH_ATTR sntp_set_time(time_t t)
 		os_timer_disarm(&sntp->ntp_timer);
 		ets_timer_arm_new(&sntp->ntp_timer, 1000, 1, 1);
 		sntp_status = -1;
+		#if DEBUGSOO > 4
+			os_printf("Manual set sntp %u = %d\n", t, sntp_status);
+		#endif
 	}
-#if DEBUGSOO > 4
-	os_printf("Manual set sntp %u = %d\n", t, sntp_status);
-#endif
 }
 
 #endif /* LWIP_UDP */

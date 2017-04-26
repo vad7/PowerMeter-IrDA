@@ -242,12 +242,13 @@ void ICACHE_FLASH_ATTR user_initialize(uint8 index)
 			//cfg_glo.PulsesPer0_01KWt = 10; // 1000 per KWt
 			cfg_glo.request_period = 30;
 			cfg_glo.page_refresh_time = 30000;
-			cfg_glo.TimeMaxMismatch = 0; //5; // sec
+			cfg_glo.TimeMaxMismatch = 0; //10; // sec
 			cfg_glo.TimeT1Start = 700;
 			cfg_glo.TimeT1End = 2300;
-			cfg_glo.pwmt_read_timeout = 5000; // us
-			cfg_glo.pwmt_response_timeout = 150000; // us
-			cfg_glo.pwmt_delay_after_err = 100000000; // us
+			cfg_glo.pwmt_read_timeout = 10000; // us
+			cfg_glo.pwmt_response_timeout = 100000; // us
+			cfg_glo.pwmt_delay_after_err = 3000000; // us
+			cfg_glo.pwmt_on_error_repeat_cnt = 3;
 			uint8 j,i;
 			for(j = 0; j < sizeof(cfg_glo.Pass) / sizeof(cfg_glo.Pass[0]); j++)
 				for(i = 0; i < sizeof(cfg_glo.Pass[0]); i++) cfg_glo.Pass[j][i] = j+1; // A:.....2
