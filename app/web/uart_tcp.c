@@ -48,17 +48,17 @@ extern void uart0_write_char(char c);
 // Маска MUX
 #define MASK_MUX ((1<<GPIO_MUX_FUN_BIT0)|(1<<GPIO_MUX_FUN_BIT1)|(1<<GPIO_MUX_FUN_BIT2)|(1<<GPIO_MUX_PULLDOWN_BIT)|(1<<GPIO_MUX_PULLUP_BIT))
 //-----------------------------------------------------------------------------
-#define UART_RX_ERR_INTS (UART_BRK_DET_INT_ENA | UART_RXFIFO_OVF_INT_ENA | UART_FRM_ERR_INT_ENA | UART_PARITY_ERR_INT_ENA)
+#define UART_RX_ERR_INTS (UART_BRK_DET_INT_ST | UART_RXFIFO_OVF_INT_ST | UART_FRM_ERR_INT_ST | UART_PARITY_ERR_INT_ST)
 #if DEBUGSOO > 5
-#define DEBUG_OUT(x)  os_printf("%c", x);
+#define DEBUG_OUT(x)  os_printf("%c", x); //UART1_FIFO = x
 #else
-#define DEBUG_OUT(x)  //UART1_FIFO = x
+#define DEBUG_OUT(x)
 #endif
 
 #ifdef USE_TCP2UART
-
 #define os_post ets_post
 #define os_task ets_task
+
 #define mMIN(a, b)  ((a<b)?a:b)
 
 suart_drv uart_drv DATA_IRAM_ATTR;
@@ -69,13 +69,16 @@ void uart_intr_handler(void *para);
 
 #ifdef USE_UART0
 
-#define uart_recvTaskPrio		0
-#define uart_recvTaskQueueLen	10
-os_event_t uart_recvTaskQueue[uart_recvTaskQueueLen];
+#ifndef USE_TIMER0
+os_timer_t uart_next_timer DATA_IRAM_ATTR;
+#endif
+#define uart_TaskPrio		0
+#define uart_TaskQueueLen	10
+os_event_t uart_TaskQueue[uart_TaskQueueLen];
 char 	UART_Buffer[UART_Buffer_size];
 uint8_t UART_Buffer_idx;
 
-extern void uart_recvTask(os_event_t *events) ICACHE_FLASH_ATTR;
+extern void uart_Task(os_event_t *events) ICACHE_FLASH_ATTR;
 
 #endif
 //-----------------------------------------------------------------------------
@@ -86,7 +89,7 @@ extern void uart_recvTask(os_event_t *events) ICACHE_FLASH_ATTR;
 void ICACHE_FLASH_ATTR uart0_set_flow(bool flow_en)
 {
 	uart0_flow_ctrl_flg = flow_en;
-	ets_intr_lock(); //	ETS_UART_INTR_DISABLE();
+	ets_isr_mask(1 << ETS_UART_INUM);
 	MEMW();
 	uint32 conf0 = UART0_CONF0 & (~(UART_TX_FLOW_EN | UART_SW_RTS | UART_SW_DTR));
 	uint32 conf1 = UART0_CONF1 & (~(UART_RX_FLOW_EN));
@@ -103,7 +106,7 @@ void ICACHE_FLASH_ATTR uart0_set_flow(bool flow_en)
 	UART0_CONF0 = conf0;
 	UART0_CONF1 = conf1;
 	update_mux_uart0();
-    ets_intr_unlock(); // ETS_UART_INTR_ENABLE();
+	ets_isr_unmask(1 << ETS_UART_INUM);
 }
 //=============================================================================
 // update_rts0() включение/отключение RTS UART0
@@ -118,6 +121,7 @@ void ICACHE_FLASH_ATTR update_rts0(void)
 		if(uart_drv.uart_rx_buf != NULL) {
 #endif
 			UART0_CONF1 |= UART_RX_FLOW_EN;
+			ets_intr_unlock();
 #ifdef USE_TCP2UART
 		}
 		else {
@@ -148,22 +152,23 @@ void ICACHE_FLASH_ATTR update_mux_uart0(void)
 			if(uart0_flow_ctrl_flg) { // включен flow
 		    	update_rts0();
 		    	MUX_TX_UART0 = VAL_FUNC_U0TX | PULLDIS; // GPIO1/RTS, output
-		    	MUX_RX_UART0 = VAL_FUNC_U0RX | ((UART0_CONF0 & UART_CTS_INV)? PULLDOWN : PULLUP); // GPIO3/CTS, input
-			}
-			else {
+		    	MUX_RX_UART0 = VAL_FUNC_U0RX; /// | ((UART0_CONF0 & UART_CTS_INV)? PULLDOWN : PULLUP); // GPIO3/CTS, input
+			} else {
 				MUX_TX_UART0 = VAL_MUX_TX_UART0_OFF;
 				MUX_RX_UART0 = VAL_MUX_RX_UART0_OFF;
 			}
-		}
-		else {
+		} else {
 			MUX_TX_UART0 = VAL_FUNC_U0TX; // GPIO1/TX0, output
-			MUX_RX_UART0 = VAL_FUNC_U0RX | ((UART0_CONF0 & UART_RXD_INV)? PULLDOWN : PULLUP);  // GPIO3/RX0, input
+			#ifdef UART0_IRDA
+				MUX_RX_UART0 = VAL_FUNC_U0RX | PULLDIS;  // GPIO3/RX0, input
+			#else
+				MUX_RX_UART0 = VAL_FUNC_U0RX | ((UART0_CONF0 & UART_RXD_INV)? PULLDOWN : PULLUP);  // GPIO3/RX0, input
+			#endif
 			if(uart0_flow_ctrl_flg) { // включен flow
 		    	update_rts0();
 		    	MUX_RTS_UART0 = VAL_FUNC_U0RTS | PULLDIS; // GPIO15/RTS, output
 		    	MUX_CTS_UART0 = VAL_FUNC_U0CTS | ((UART0_CONF0 & UART_CTS_INV)? PULLDOWN : PULLUP); // GPIO13/CTS, input
-			}
-			else {
+			} else {
 				MUX_RTS_UART0 = VAL_MUX_RTS_UART0_OFF;
 				MUX_CTS_UART0 = VAL_MUX_CTS_UART0_OFF;
 			}
@@ -198,7 +203,7 @@ void ICACHE_FLASH_ATTR update_mux_txd1(void)
 void ICACHE_FLASH_ATTR set_uartx_invx(uint8 uartn, uint8 set, uint32 bit_mask)
 {
 	uint32 invx = (set)? bit_mask : 0;
-	ets_intr_lock(); //	ETS_UART_INTR_DISABLE();
+	ets_isr_mask(1 << ETS_UART_INUM);
 	MEMW();
 	if(uartn != UART0) {
 		UART1_CONF0 = (UART1_CONF0 & (~ bit_mask)) | invx;
@@ -210,7 +215,7 @@ void ICACHE_FLASH_ATTR set_uartx_invx(uint8 uartn, uint8 set, uint32 bit_mask)
 		update_mux_uart0();
 	}
 #endif
-    ets_intr_unlock(); // ETS_UART_INTR_ENABLE();
+	ets_isr_unmask(1 << ETS_UART_INUM);
 }
 //=============================================================================
 // uart_read_fcfg()
@@ -260,21 +265,36 @@ void ICACHE_FLASH_ATTR uart_read_fcfg(uint8 set)
 			ux.baud = UART0_DEFBAUD;
 			ux.cfg.dw = UART0_REGCONFIG0DEF; //8N1
 		}
+		UART0_pause_between_bytes = 1000000UL * 10 / ux.baud; // us
+		UART0_IrDA_TX_CLK = UART_CLK_FREQ / (ux.baud + ux.baud / 15); // or /16
+		UART0_IrDA_RX_CLK = UART_CLK_FREQ / ux.baud;
 		uart0_flow_ctrl_flg = ux.cfg.b.flow_en;
-		UART0_CONF0 = ux.cfg.dw & UART0_REGCONFIG0MASK;
+		if(ux.cfg.b.swap) PERI_IO_SWAP |= PERI_IO_UART0_PIN_SWAP;
+		else PERI_IO_SWAP &= ~PERI_IO_UART0_PIN_SWAP;
+		update_mux_uart0();
+#ifdef UART0_IRDA
+		UART0_AUTOBAUD = 0;
+		UART0_CONF0 = (ux.cfg.dw & UART0_REGCONFIG0MASK) | UART_IRDA_EN | UART_IRDA_TX_EN | UART_IRDA_RX_INV | UART_IRDA_DPLX;
+		UART0_CONF1 = ((128 - RST_FIFO_CNT_SET - RST_FIFO_CNT_SET) << UART_RXFIFO_FULL_THRHD_S)
+			| ((0 & UART_TXFIFO_EMPTY_THRHD) << UART_TXFIFO_EMPTY_THRHD_S)
+			| (((128 - RST_FIFO_CNT_SET) & UART_RX_FLOW_THRHD) << UART_RX_FLOW_THRHD_S)
+			| ((0x03 & UART_RX_TOUT_THRHD) << UART_RX_TOUT_THRHD_S) //| UART_RX_TOUT_EN
+		;
+		uart_div_modify(UART0, UART_CLK_FREQ / ux.baud);
+#else
+		UART0_CONF0 = (ux.cfg.dw & UART0_REGCONFIG0MASK);
 		UART0_CONF1 = ((128 - RST_FIFO_CNT_SET - RST_FIFO_CNT_SET) << UART_RXFIFO_FULL_THRHD_S)
 #ifdef USE_TCP2UART
 			| ((0x08 & UART_TXFIFO_EMPTY_THRHD) << UART_TXFIFO_EMPTY_THRHD_S)
 #else
-			| ((0x01 & UART_TXFIFO_EMPTY_THRHD) << UART_TXFIFO_EMPTY_THRHD_S)
+			| ((0x00 & UART_TXFIFO_EMPTY_THRHD) << UART_TXFIFO_EMPTY_THRHD_S)
 #endif
 			| (((128 - RST_FIFO_CNT_SET) & UART_RX_FLOW_THRHD) << UART_RX_FLOW_THRHD_S)
 			| ((0x07 & UART_RX_TOUT_THRHD) << UART_RX_TOUT_THRHD_S) //| UART_RX_TOUT_EN
 		;
-		if(ux.cfg.b.swap) PERI_IO_SWAP |= PERI_IO_UART0_PIN_SWAP;
-		else PERI_IO_SWAP &= ~PERI_IO_UART0_PIN_SWAP;
-		update_mux_uart0();
 		uart_div_modify(UART0, UART_CLK_FREQ / ux.baud);
+#endif
+
 #if defined(USE_TCP2UART) || defined(USE_UART0)
 		uart0_set_tout();
 #endif
@@ -323,6 +343,9 @@ void uart0_set_tout(void)
 		tout_thrhd += 2;
 	}
 	else tout_thrhd = 5;
+#if DEBUGSOO > 4
+	os_printf(" UART0 RX_TOUT=%u\n", tout_thrhd);
+#endif
 	UART0_CONF1 = (UART0_CONF1 & (~(UART_RX_TOUT_THRHD << UART_RX_TOUT_THRHD_S))) | (tout_thrhd << UART_RX_TOUT_THRHD_S);
 }
 /* =========================================================================
@@ -330,27 +353,45 @@ void uart0_set_tout(void)
  * ------------------------------------------------------------------------- */
 uint32 uart_tx_buf(uint8 *buf, uint32 count)
 {
-	#if DEBUGSOO > 4
+#if DEBUGSOO > 5
 	{
 		uint8 i;
 		os_printf(" TX(%u):", system_get_time());
 		for(i = 0; i < count; i++) os_printf(" %02X", buf[i]);
 		os_printf("\n");
 	}
-	#endif
+#endif
+#ifdef UART0_IRDA
+	if(count) {
+		MEMW();
+		UART0_CLKDIV = UART0_IrDA_TX_CLK;
+		UART0_FIFO = *buf;
+		UART0_Buffer = buf;
+		UART0_Buffer_size = count;
+		UART0_Buffer_idx = 1;
+	 #ifdef USE_TIMER0
+		timer0_start(UART0_pause_between_bytes, true); // repeat, us
+	 #else
+		ets_timer_disarm(&uart_next_timer);
+		ets_timer_arm_new(&uart_next_timer, UART0_pause_between_bytes, 1, 0); // repeat, us
+	 #endif
+	}
+	return count;
+#else
 	int len = 0;
 	while(len < count){
 		MEMW(); // синхронизация и ожидание отработки fifo-write на шине CPU
 		if (((UART0_STATUS >> UART_TXFIFO_CNT_S) & UART_TXFIFO_CNT) >= 127) {
 			// не всё передано - не лезет в буфер fifo UART tx.
-			ets_intr_lock(); //	ETS_UART_INTR_DISABLE();
-			UART0_INT_ENA |= UART_TXFIFO_EMPTY_INT_ENA; // установим прерывание на пустой fifo tx
-			ets_intr_unlock(); // ETS_UART_INTR_ENABLE();
+//			ets_intr_lock(); //	ETS_UART_INTR_DISABLE();
+//			UART0_INT_ENA |= UART_TXFIFO_EMPTY_INT_ENA; // установим прерывание на пустой fifo tx
+//			ets_intr_unlock(); // ETS_UART_INTR_ENABLE();
 			break;
 		}
 		UART0_FIFO = buf[len++];
 	};
 	return len;
+#endif
 }
 /* =========================================================================
  * uart_drv_close
@@ -362,7 +403,7 @@ void ICACHE_FLASH_ATTR uart_drv_close(void)
 	//clear rx and tx fifo, not ready
 	uint32 conf0 = UART0_CONF0;
 	UART0_CONF0 = conf0 | UART_RXFIFO_RST | UART_TXFIFO_RST;
-	UART0_CONF0 = (conf0 & (~ (UART_RXFIFO_RST | UART_TXFIFO_RST))); // | USE_UART0;
+	UART0_CONF0 = (conf0 & (~ (UART_RXFIFO_RST | UART_TXFIFO_RST)));
 	UART0_CONF1 &= ~UART_RX_TOUT_EN;
 #ifdef USE_TCP2UART
 	if(uart_drv.uart_rx_buf != NULL) {
@@ -372,6 +413,11 @@ void ICACHE_FLASH_ATTR uart_drv_close(void)
 #endif
 	UART0_INT_CLR = 0xffff;
 	update_rts0(); // update RST
+#ifdef USE_TIMER0
+	timer0_stop();
+#else
+	ets_timer_disarm(&uart_next_timer);
+#endif
 }
 /* =========================================================================
  * uart_drv_close
@@ -388,9 +434,11 @@ bool ICACHE_FLASH_ATTR uart_drv_start(void)
 		uart_drv.uart_out_buf_count = 0;
 		if(uart_drv.uart_rx_buf != NULL) {
 #endif
+			ets_isr_mask(1 << ETS_UART_INUM);
 			update_rts0(); // update RST
 			UART0_CONF1 |= UART_RX_TOUT_EN;
-			UART0_INT_ENA = UART_RXFIFO_FULL_INT_ENA | UART_RXFIFO_TOUT_INT_ENA;
+			UART0_INT_ENA = UART_RXFIFO_FULL_INT_ENA | UART_RXFIFO_TOUT_INT_ENA; //   | UART_BRK_DET_INT_ENA | UART_FRM_ERR_INT_ENA;
+			ets_isr_unmask(1 << ETS_UART_INUM);
 			return true;
 #ifdef USE_TCP2UART
 		}
@@ -527,6 +575,23 @@ void uart_intr_handler(void *para)
 }
 #endif // USE_TCP2UART
 #ifdef USE_UART0
+void uart_next_timer_func(void)
+{
+	MEMW();
+	if(UART0_Buffer_idx < UART0_Buffer_size) {
+		UART0_FIFO = UART0_Buffer[UART0_Buffer_idx++];
+	} else {
+	#ifdef USE_TIMER0
+		//timer0_stop(); // <- hangs on active wifi transfer
+		TIMER0_CTRL = 0;
+		INTC_EDGE_EN &= ~BIT(1);
+	#else
+		ets_timer_disarm(&uart_next_timer);
+	#endif
+		UART0_CLKDIV = UART0_IrDA_RX_CLK;
+	}
+}
+
 void uart_intr_handler(void *para)
 {
 	DEBUG_OUT('I');
@@ -534,13 +599,8 @@ void uart_intr_handler(void *para)
 		DEBUG_OUT('i');
 		uint32 ints = UART0_INT_ST;
 		if(ints) {
-			if(UART0_INT_RAW & UART_RX_ERR_INTS) { // ошибки при приеме?
-				DEBUG_OUT('E');
-				UART0_INT_CLR = UART_RX_ERR_INTS;
-				//uart_rx_clr_buf(); // сбросить rx fifo, ошибки приема и буфер
-			}
 			if(ints & (UART_RXFIFO_FULL_INT_ST | UART_RXFIFO_TOUT_INT_ST)) { // прерывание по приему символов или Rx time-out event? да
-					DEBUG_OUT('R');
+				DEBUG_OUT('R');
 				if(UART_Buffer_idx >= UART_Buffer_size) { // буфер заполнен?
 					DEBUG_OUT('@');
 					// отключим прерывание приема, должен выставиться RTS
@@ -558,20 +618,26 @@ void uart_intr_handler(void *para)
 							UART_Buffer[UART_Buffer_idx++] = READ_PERI_REG(UART_FIFO(UART0)) & 0xFF;
 						} while((READ_PERI_REG(UART_STATUS(UART0))>>UART_RXFIFO_CNT_S) & UART_RXFIFO_CNT);
 					}
-					system_os_post(uart_recvTaskPrio, 0, 0);
+					system_os_post(uart_TaskPrio, UART_RX_CHARS, 0);
 				}
 			}
-			if(ints & UART_TXFIFO_EMPTY_INT_ST) { // fifo tx пусто?
-					DEBUG_OUT('W');
-				UART0_INT_ENA &= ~UART_TXFIFO_EMPTY_INT_ENA;
-			}
+#ifndef UART0_IRDA
+//			if(ints & UART_TXFIFO_EMPTY_INT_ST) { // fifo tx пусто?
+//				DEBUG_OUT('W');
+//				//GPIO_OUT ^= (1<<14); // Set Low
+//				system_os_post(uart_TaskPrio, UART_TX_CHARS, ints);
+//				UART0_INT_ENA &= ~UART_TXFIFO_EMPTY_INT_ENA;
+//			}
+#endif
 	    }
 		UART0_INT_CLR = ints;
 	} else {
+		DEBUG_OUT('!');
     	UART1_INT_ENA = 0;
     	UART1_INT_CLR = 0xffff;
     }
 }
+
 #endif // USE_UART0
 /******************************************************************************
  * FunctionName : uart_init
@@ -616,9 +682,23 @@ void ICACHE_FLASH_ATTR uarts_init(void)
 		ets_isr_attach(ETS_UART_INUM, uart_intr_handler, NULL);
 		ets_isr_unmask(1 << ETS_UART_INUM);
 	#ifdef USE_TCP2UART
-		os_task(uart_task, UART_TASK_PRIO + SDK_TASK_PRIO, uart_drv.taskQueue, UART_TASK_QUEUE_LEN);
+		os_task(uart_task, UART_TASK_PRIO, UART0_taskQueue, UART_TASK_QUEUE_LEN);
 	#else
-		system_os_task(uart_recvTask, uart_recvTaskPrio, uart_recvTaskQueue, uart_recvTaskQueueLen);  // process the uart data
+		system_os_task(uart_Task, uart_TaskPrio, uart_TaskQueue, uart_TaskQueueLen);  // process the uart data
+	#ifdef UART0_IRDA
+		//
+		//ets_intr_lock();
+		//SET_PIN_FUNC(14, (MUX_FUN_IO_PORT(14) | (0 << GPIO_MUX_PULLUP_BIT)));
+		//GPIO_ENABLE_W1TS = (1<<14); // Enable output (WO)
+		//ets_intr_unlock();
+		//
+	 #ifdef USE_TIMER0
+		timer0_init(uart_next_timer_func, true);
+	 #else
+		ets_timer_disarm(&uart_next_timer);
+		os_timer_setfn(&uart_next_timer, (os_timer_func_t *)uart_next_timer_func, NULL);
+	 #endif
+	#endif
 		#if DEBUGSOO > 4
 			os_printf("Init UART0\n");
 		#endif

@@ -32,11 +32,24 @@ extern char		UART_Buffer[];
 extern uint8_t	UART_Buffer_idx;
 #endif
 
+typedef enum {
+	UART_RX_CHARS = 1,
+	UART_TX_CHARS,
+} UART_SIGS;
+
 void uart0_set_tout(void);
 uint32 uart_tx_buf(uint8 *buf, uint32 count);
 bool uart_drv_start(void);
 void uart_drv_close(void);
-
+#ifdef UART0_IRDA
+uint8_t *UART0_Buffer;
+uint32_t UART0_Buffer_idx;
+uint32_t UART0_Buffer_size;
+// for fix bugs esp8266 UART IrDA:
+uint32_t UART0_pause_between_bytes; // us
+uint32_t UART0_IrDA_TX_CLK; // will be set before TX in uart_tx_buf()
+uint32_t UART0_IrDA_RX_CLK; // will be set after TX all data
+#endif
 #endif
 
 #ifndef USE_RS485DRV
@@ -57,11 +70,6 @@ void set_uartx_invx(uint8 uartn, uint8 set, uint32 bit_mask) ICACHE_FLASH_ATTR;
 
 typedef void uart_rx_blk_func(uint8 *buf, uint32 count); // функция обработки принятых блоков из UART
 typedef void uart_tx_next_chars_func(void); // запрос на передачу следующих символов блока в UART
-
-typedef enum {
-	UART_RX_CHARS = 1,
-	UART_TX_CHARS,
-} UART_SIGS;
 
 typedef struct {
 	uint8	* uart_rx_buf; // указатель на буфер [UART_RX_BUF_MAX], если равер NULL, драйвер отключен

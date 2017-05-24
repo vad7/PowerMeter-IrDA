@@ -565,15 +565,17 @@ void ICACHE_FLASH_ATTR read_wifi_config(void)
 void ICACHE_FLASH_ATTR startup_uart_init(void)
 {
 	ets_isr_mask(1 << ETS_UART_INUM);
+#ifndef UART0_IRDA
 	UART0_INT_ENA = 0;
-	UART1_INT_ENA = 0;
 	UART0_INT_CLR = 0xFFFFFFFF;
-	UART1_INT_CLR = 0xFFFFFFFF;
 	UART0_CONF0 = 0x000001C;
-	UART1_CONF0 = 0x000001C;
 	UART0_CONF1 = 0x01707070;
-	UART1_CONF1 = 0x01707070;
 	uart_div_modify(0, UART_CLK_FREQ / DEBUG_UART0_BAUD);
+#endif
+	UART1_INT_ENA = 0;
+	UART1_INT_CLR = 0xFFFFFFFF;
+	UART1_CONF0 = 0x000001C;
+	UART1_CONF1 = 0x01707070;
 	uart_div_modify(1, UART_CLK_FREQ / DEBUG_UART1_BAUD);
 #if DEBUG_UART==1
 	GPIO2_MUX = (1 << GPIO_MUX_FUN_BIT1);
@@ -617,6 +619,9 @@ void ICACHE_FLASH_ATTR startup(void)
 #endif
 	// Set GPIO0: GPIO input, pullup
 	GPIO0_MUX = VAL_MUX_GPIO0_SDK_DEF;
+#ifdef UART0_IRDA
+	UART0_CONF0 = 0x1C | UART_IRDA_EN | UART_IRDA_TX_EN | UART_IRDA_RX_INV | UART_IRDA_DPLX; // 8N1
+#endif
 #ifdef DEBUG_UART
 	startup_uart_init();
 	os_printf("\n\nmeSDK %s\n", SDK_VERSION);

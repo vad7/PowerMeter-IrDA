@@ -68,6 +68,10 @@
 
 #if DEBUGSOO > 1
 void _localtime(time_t * tim_p, struct tm * res) ICACHE_FLASH_ATTR;
+#else
+#ifdef DEBUG_TO_RAM
+void _localtime(time_t * tim_p, struct tm * res) ICACHE_FLASH_ATTR;
+#endif
 #endif
 int8 sntp_status = 0; // 1,2 - ok, -1 - manual set
 
@@ -341,17 +345,9 @@ static void ICACHE_FLASH_ATTR sntp_process(u32_t *receive_timestamp) {
 	LWIP_DEBUGF(SNTP_DEBUG_TRACE, ("sntp_process: %s", ctime(&t)));
 #endif /* SNTP_CALC_TIME_US */
 	sntp->sntp_time = t;
-#if DEBUGSOO > 1
-	os_printf("SNTP: Set time: %p - ", t);
-	struct tm tm;
-	time_t lt = get_sntp_localtime();
-	_localtime(&lt, &tm);
-	os_printf("%04d-%02d-%02d %02d:%02d:%02d +%d\n", 1900+tm.tm_year, 1+tm.tm_mon, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, sntp->sntp_time_zone);
-#endif
-	dbg_printf("SNTP(%u)=%u\n", dbg_next_time(), t);
-	sntp_status = 1;
 	os_timer_disarm(&sntp->ntp_timer);
 	ets_timer_arm_new(&sntp->ntp_timer, 1000, 1, 1);
+	sntp_status = 1;
 }
 
 /**
@@ -514,6 +510,23 @@ static void ICACHE_FLASH_ATTR sntp_recv(void *arg, struct udp_pcb* pcb,
 		SNTP_RESET_RETRY_TIMEOUT();
 
 		sntp_process(receive_timestamp);
+
+		// debug_ram info
+		#ifdef DEBUG_TO_RAM
+			struct tm tm;
+			time_t lt = get_sntp_localtime();
+			_localtime(&lt, &tm);
+			dbg_printf("SNTP(%u)=%02d %02d:%02d:%02d " IPSTR "\n", dbg_next_time(), tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, IP2STR(addr));
+		#endif
+		#if DEBUGSOO > 1
+		  #ifndef DEBUG_TO_RAM
+			struct tm tm;
+			time_t lt = get_sntp_localtime();
+			_localtime(&lt, &tm);
+		  #endif
+			os_printf("SNTP: Set time: %u - ", lt);
+			os_printf("%04d-%02d-%02d %02d:%02d:%02d +%d\n", 1900+tm.tm_year, 1+tm.tm_mon, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, sntp->sntp_time_zone);
+		#endif
 
 		/* Set up timeout for next request */
 		sys_timeout((u32_t) SNTP_UPDATE_DELAY, sntp_request, NULL);

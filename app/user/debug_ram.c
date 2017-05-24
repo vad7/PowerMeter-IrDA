@@ -28,9 +28,12 @@ void dbg_printf_out(char c)
 	}
 }
 
+uint64 ICACHE_FLASH_ATTR get_mac_time(void);
+
 uint32 dbg_next_time(void) {
-	uint32 ret = system_get_time() - Debug_last_time;
-	Debug_last_time = system_get_time();
+	uint32 t = get_mac_time() / 1000;
+	uint32 ret = t - Debug_last_time;
+	Debug_last_time = t;
 	return ret;
 }
 

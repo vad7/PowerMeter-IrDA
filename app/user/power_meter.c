@@ -240,14 +240,14 @@ void ICACHE_FLASH_ATTR user_initialize(uint8 index)
 			cfg_glo.csv_delimiter_total = ';';
 			cfg_glo.csv_delimiter_total_dec = ',';
 			//cfg_glo.PulsesPer0_01KWt = 10; // 1000 per KWt
-			cfg_glo.request_period = 30;
-			cfg_glo.page_refresh_time = 30000;
+			cfg_glo.request_period = 5;
+			cfg_glo.page_refresh_time = 2500;
 			cfg_glo.TimeMaxMismatch = 0; //10; // sec
 			cfg_glo.TimeT1Start = 700;
 			cfg_glo.TimeT1End = 2300;
-			cfg_glo.pwmt_read_timeout = 10000; // us
-			cfg_glo.pwmt_response_timeout = 100000; // us
-			cfg_glo.pwmt_delay_after_err = 3000000; // us
+			cfg_glo.pwmt_read_timeout = 6000; // us
+			cfg_glo.pwmt_response_timeout = 120000; // us
+			cfg_glo.pwmt_delay_after_err = 2500000; // us
 			cfg_glo.pwmt_on_error_repeat_cnt = 3;
 			uint8 j,i;
 			for(j = 0; j < sizeof(cfg_glo.Pass) / sizeof(cfg_glo.Pass[0]); j++)

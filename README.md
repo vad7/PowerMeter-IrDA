@@ -33,7 +33,10 @@ Over-The-Air firmware updating.
 
 ![alt tag](https://github.com/vad7/PowerMeter-IrDA/blob/master/Web6.jpg)
 
-Schematic: 
+Схема (bin/firmware.bin): 
+![SCH](https://github.com/vad7/PowerMeter-IrDA/blob/master/PowerMeter-IrDA_direct.jpg)
+
+Схема с конвертером UART-IrDA MCP2120 (bin/firmware_with_MCP2120.bin): 
 
 ![SCH](https://github.com/vad7/PowerMeter-IrDA/blob/master/PowerMeter-IrDA.jpg)
 

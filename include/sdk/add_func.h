@@ -136,9 +136,9 @@ void timer0_start(uint32 us, bool repeat_flg);
 void timer0_stop(void);
 
 #ifdef TIMER0_USE_NMI_VECTOR
-void timer0_init(void *func, uint32 par, bool nmi_flg);
+void timer0_init(void *func, bool nmi_flg);
 #else
-void timer0_init(void *func, void *par);
+void timer0_init(void *func);
 #endif
 #endif
 

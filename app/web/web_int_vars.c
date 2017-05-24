@@ -81,7 +81,7 @@ void ICACHE_FLASH_ATTR reg_sct_bits(volatile uint32 * addr, uint32 bits, uint32 
 	else x &= ~ bits;
 	*addr =  x;
 }
-#ifdef USE_TIMER0
+#ifdef USE_TIMER0_IN_WEB
 // тест
 void timer0_tst_isr(void *arg)
 {
@@ -895,7 +895,7 @@ xfram_save:		eeprom_write_block(0, (uint8 *)&fram_store, sizeof(fram_store));
 		}
 	}
 #endif
-#ifdef USE_TIMER0
+#ifdef USE_TIMER0_IN_WEB
 	else ifcmp("tinit") {
 #ifdef TIMER0_USE_NMI_VECTOR
 		timer0_init(timer0_tst_isr, val, val);

@@ -13,10 +13,10 @@
 
 #ifdef USE_TIMER0
 
-typedef void (*nmi_func_t)(uint32 par);
+typedef void (*nmi_func_t)(void); //uint32 par);
 
 extern nmi_func_t timer0_cb;
-extern uint32 timer0_arg;
+//extern uint32 timer0_arg;
 
 #ifdef TIMER0_USE_NMI_VECTOR
 
@@ -65,10 +65,10 @@ void NMI_Handler(void)
 */
 #endif
 
-void _timer0_isr(void * arg)
+void _timer0_isr(void) // * arg)
 {
 	if(timer0_cb != NULL) {
-		timer0_cb(timer0_arg);
+		timer0_cb(); //timer0_arg);
 		if((TIMER0_CTRL & TM_AUTO_RELOAD_CNT) == 0) {
 			INTC_EDGE_EN &= ~BIT(1);
 		}
@@ -112,17 +112,17 @@ void ICACHE_FLASH_ATTR timer0_start(uint32 us, bool repeat_flg)
 }
 
 #ifdef TIMER0_USE_NMI_VECTOR
-void timer0_init(void *func, uint32 par, bool nmi_flg)
+void timer0_init(void *func, bool nmi_flg)
 #else
-void timer0_init(void *func, uint32 par)
+void timer0_init(void *func) //, uint32 par)
 #endif
 {
 #if DEBUGSOO > 3
-	os_printf("timer0_init(%d)\n", flg);
+	os_printf("timer0_init(%d)\n", nmi_flg);
 #endif
 	timer0_stop();
 	timer0_cb = func;
-	timer0_arg = par;
+	//timer0_arg = par;
 #ifdef TIMER0_USE_NMI_VECTOR
 	if(nmi_flg) {
 		DPORT_BASE[0] |= 0x0F;
@@ -133,7 +133,7 @@ void timer0_init(void *func, uint32 par)
 		DPORT_BASE[0] = 0;
 		ets_isr_attach(ETS_FRC_TIMER0_INUM, _timer0_isr, NULL);
 	}
-	ets_isr_unmask(BIT(ETS_FRC_TIMER0_INUM));
+	//ets_isr_unmask(BIT(ETS_FRC_TIMER0_INUM));
 }
 #endif // USE_TIMER0
 /* In eagle.app.v6.ld:
@@ -158,9 +158,9 @@ void __attribute__((section(".vectors.text"))) jump_boot(void)
 #endif
 #if defined(USE_TIMER0)
 			".align 	4\n"
-			".global	timer0_cb, timer0_arg\n"
+			".global	timer0_cb\n" //, timer0_arg\n"
 "timer0_cb:	.word	0\n"
-"timer0_arg:.word	0\n"
+//"timer0_arg:.word	0\n"
 #endif
 #if defined(USE_TIMER0) && defined(TIMER0_USE_NMI_VECTOR)
 			".align 	16\n"
@@ -231,7 +231,7 @@ void __attribute__((section(".vectors.text"))) jump_boot(void)
 
 			"l32r	a0, timer0_cb\n" // if(timer0_cb !=0) timer0_cb(timer0_arg)
 			"beqz	a0, 5f\n"
-			"l32r	a2, timer0_arg\n"
+//			"l32r	a2, timer0_arg\n"
 			"callx0	a0\n"
 "5:\n"
 			"l32r	a0, ptimer_\n"	// TIMER0_INT &= 0xFFE;
