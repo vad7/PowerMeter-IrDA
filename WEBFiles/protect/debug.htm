@@ -27,7 +27,7 @@ Get <a href="/protect/system.xml">system.xml</a>, <a href="/protect/aps.xml">aps
 <a title='Not work for any mode...' href='/timeout.htm?sys_reset=12345'>SoftWare Reset</a>, <a title='Not work for any mode...' href='/timeout.htm?sys_restart=12345'>System Restart</a><br><br>
 Counter erase the last flash sector in the Chinese SDK, to save 28 bytes: ~sys_rdec0x4027F008~!<br>
 <br>
-Update time: <input title="dd.mm.yyyy hh:mm" id="set_time" maxlength="20" value="~sntp_time~">
+Update time: <input title="dd.mm.yyyy hh:mm:ss" id="set_time" maxlength="20" value="~sntp_time~">
 <button type="button" onclick="SetOnChange()">Set</button>
 </p>
 </div>
@@ -64,11 +64,11 @@ return ("0" + n).slice(-2);
 }
 function SetOnChange() {
 	var s = document.getElementById('set_time').value;
-	var d = new Date(Number(s.substr(6,4)), Number(s.substr(3,2))-1, Number(s.substr(0,2)), Number(s.substr(11,2)), Number(s.substr(14,2)), 0, 0);
+	var d = new Date(Number(s.substr(6,4)), Number(s.substr(3,2))-1, Number(s.substr(0,2)), Number(s.substr(11,2)), Number(s.substr(14,2)), Number(s.substr(17,2)), 0);
 	window.location.replace(window.location.href + '?cfg_sntp_time='+(d.valueOf()/1000));
 }
 var f = document.getElementById('set_time');
 var d = new Date(f.value * 1000);
-f.value = lzero2(d.getDate()) +"."+ lzero2(d.getMonth()+1) +"."+ d.getFullYear() +" "+ lzero2(d.getHours()) +":"+ lzero2(d.getMinutes()); 
+f.value = lzero2(d.getDate()) +"."+ lzero2(d.getMonth()+1) +"."+ d.getFullYear() +" "+ lzero2(d.getHours()) +":"+ lzero2(d.getMinutes()) +":"+ lzero2(d.getSeconds());
 </script>
 </body></html>

@@ -42,7 +42,7 @@ typedef struct {
 	uint8	pwmt_address;		// power meter network address, 0 - group
 	uint16  Tariffs[2];			// T1, T2. *100
 	uint8	pwmt_on_error_repeat_cnt;
-	uint16  SNTP_update_delay_min;
+	uint16  SNTP_update_delay_min; // 0 - don't do it
 //	char sntp_server[20];
 } CFG_GLO;
 CFG_GLO __attribute__((aligned(4))) cfg_glo;

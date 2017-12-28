@@ -1562,7 +1562,7 @@ void ICACHE_FLASH_ATTR web_int_callback(TCP_SERV_CONN *ts_conn, uint8 *cstr)
 	else ifcmp("sntp_") {
 		cstr += 5;
 		ifcmp("time") tcp_puts("%u", get_sntp_time());
-		else ifcmp("status") tcp_puts("%s", sntp_status ? "Ok" : "?");
+		else ifcmp("status") tcp_puts("%s", sntp_status == -1 ? "*" : sntp_status ? "Ok" : "?");
 		else tcp_put('?');
 	}
 #endif

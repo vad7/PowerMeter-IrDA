@@ -529,9 +529,11 @@ static void ICACHE_FLASH_ATTR sntp_recv(void *arg, struct udp_pcb* pcb,
 		#endif
 
 		/* Set up timeout for next request */
-		sys_timeout((u32_t) SNTP_UPDATE_DELAY, sntp_request, NULL);
-		LWIP_DEBUGF(SNTP_DEBUG_STATE, ("sntp_recv: Scheduled next time request: %"U32_F" ms\n",
-		      (u32_t)SNTP_UPDATE_DELAY));
+		if(SNTP_UPDATE_DELAY) {
+			sys_timeout((u32_t) SNTP_UPDATE_DELAY, sntp_request, NULL);
+			LWIP_DEBUGF(SNTP_DEBUG_STATE, ("sntp_recv: Scheduled next time request: %"U32_F" ms\n",
+						(u32_t)SNTP_UPDATE_DELAY));
+		}
 	} else if (err == SNTP_ERR_KOD) {
 		/* Kiss-of-death packet. Use another server or increase UPDATE_DELAY. */
 		sntp_try_next_server(NULL);
@@ -698,7 +700,7 @@ void ICACHE_FLASH_ATTR ntp_time_update(void *ignored)
  */
 bool ICACHE_FLASH_ATTR sntp_inits(int8_t UTC_offset, uint16_t update_delay_min)
 {
-	sntp_update_delay = update_delay_min ? update_delay_min * 60000 : 60000;
+	sntp_update_delay = update_delay_min; // ? update_delay_min * 60000 : 60000;
 	if (sntp == NULL) {
 		sntp = (struct ssntp *)os_zalloc(sizeof(struct ssntp));
 		if (sntp == NULL) {
