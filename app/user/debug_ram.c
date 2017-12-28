@@ -31,7 +31,11 @@ void dbg_printf_out(char c)
 uint64 ICACHE_FLASH_ATTR get_mac_time(void);
 
 uint32 dbg_next_time(void) {
+#ifndef UART0_IRDA
 	uint32 t = get_mac_time() / 1000;
+#else
+	uint32 t = system_get_time() / 1000;
+#endif
 	uint32 ret = t - Debug_last_time;
 	Debug_last_time = t;
 	return ret;

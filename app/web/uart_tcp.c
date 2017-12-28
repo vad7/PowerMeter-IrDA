@@ -265,14 +265,14 @@ void ICACHE_FLASH_ATTR uart_read_fcfg(uint8 set)
 			ux.baud = UART0_DEFBAUD;
 			ux.cfg.dw = UART0_REGCONFIG0DEF; //8N1
 		}
-		UART0_pause_between_bytes = 1000000UL * 10 / ux.baud; // us
-		UART0_IrDA_TX_CLK = UART_CLK_FREQ / (ux.baud + ux.baud / 15); // or /16
-		UART0_IrDA_RX_CLK = UART_CLK_FREQ / ux.baud;
 		uart0_flow_ctrl_flg = ux.cfg.b.flow_en;
 		if(ux.cfg.b.swap) PERI_IO_SWAP |= PERI_IO_UART0_PIN_SWAP;
 		else PERI_IO_SWAP &= ~PERI_IO_UART0_PIN_SWAP;
 		update_mux_uart0();
 #ifdef UART0_IRDA
+		UART0_pause_between_bytes = 1000000UL * 10 / ux.baud; // us
+		UART0_IrDA_TX_CLK = UART_CLK_FREQ / (ux.baud + ux.baud / 15); // or /16
+		UART0_IrDA_RX_CLK = UART_CLK_FREQ / ux.baud;
 		UART0_AUTOBAUD = 0;
 		UART0_CONF0 = (ux.cfg.dw & UART0_REGCONFIG0MASK) | UART_IRDA_EN | UART_IRDA_TX_EN | UART_IRDA_RX_INV | UART_IRDA_DPLX;
 		UART0_CONF1 = ((128 - RST_FIFO_CNT_SET - RST_FIFO_CNT_SET) << UART_RXFIFO_FULL_THRHD_S)
@@ -575,6 +575,7 @@ void uart_intr_handler(void *para)
 }
 #endif // USE_TCP2UART
 #ifdef USE_UART0
+#ifdef UART0_IRDA
 void uart_next_timer_func(void)
 {
 	MEMW();
@@ -591,6 +592,7 @@ void uart_next_timer_func(void)
 		UART0_CLKDIV = UART0_IrDA_RX_CLK;
 	}
 }
+#endif
 
 void uart_intr_handler(void *para)
 {

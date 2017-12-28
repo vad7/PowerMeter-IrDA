@@ -275,6 +275,7 @@ FlashAll: $(OUTBIN1)  $(USERFBIN) $(OUTBIN2) $(DEFAULTBIN) $(BLANKBIN) $(CLREEPB
 
 FlashClearSetings: $(CLREEPBIN) $(DEFAULTBIN) $(BLANKBIN)
 	$(ESPTOOL) $(ESPOPTION) write_flash $(flashimageoptions) $(CLREEPADDR) $(CLREEPBIN) $(DEFAULTADDR) $(DEFAULTBIN) $(BLANKADDR) $(BLANKBIN)
+#	$(ESPTOOL) $(ESPOPTION) write_flash $(flashimageoptions) $(DEFAULTADDR) $(DEFAULTBIN)
 
 FlashCode: $(OUTBIN1) $(OUTBIN2)
 	$(ESPTOOL) $(ESPOPTION) write_flash $(flashimageoptions) $(ADDR_FW1) $(OUTBIN1) $(ADDR_FW2) $(OUTBIN2)

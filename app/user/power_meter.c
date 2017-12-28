@@ -50,7 +50,7 @@ void ICACHE_FLASH_ATTR update_cnts(time_t time) // 1 minute passed
 		uint16 u16[2];
 	} arrcnt;
 
-	if(time > fram_store.ByMin.LastTime + 200 * SECSPERDAY) { // run: first time or after a long time (200 days)
+	if((time > fram_store.ByMin.LastTime + 200 * SECSPERDAY) || fram_store.ByMin.PowerCnt > 1000000UL) { // run: first time or after a long time (200 days) or too big PowerCnt
 		#if DEBUGSOO > 2
 			os_printf("%u - %u > 200 days\n", time, fram_store.ByMin.LastTime);
 		#endif
@@ -121,7 +121,10 @@ void ICACHE_FLASH_ATTR update_cnt_timer_func(void) // repeat every 1 sec
 		}
 	}
 	uint32 total = pwmt_cur.Total[0] + pwmt_cur.Total[1] + pwmt_cur.Total[2];
-	uint32 pulses = (total - fram_store.ByMin.TotalCnt); // * cfg_glo.PulsesPer0_01KWt / 10;
+	uint32 pulses = 0;
+	if(total > fram_store.ByMin.TotalCnt) {
+		pulses = (total - fram_store.ByMin.TotalCnt); // * cfg_glo.PulsesPer0_01KWt / 10;
+	}
 	fram_store.ByMin.PowerCnt += pulses;
 	//fram_store.ByMin.PreviousTotalW += pulses; // * 10 / cfg_glo.PulsesPer0_01KWt;
 	#if DEBUGSOO > 3
@@ -245,9 +248,9 @@ void ICACHE_FLASH_ATTR user_initialize(uint8 index)
 			cfg_glo.TimeMaxMismatch = 0; //10; // sec
 			cfg_glo.TimeT1Start = 700;
 			cfg_glo.TimeT1End = 2300;
-			cfg_glo.pwmt_read_timeout = 6000; // us
+			cfg_glo.pwmt_read_timeout = 5000; // us
 			cfg_glo.pwmt_response_timeout = 120000; // us
-			cfg_glo.pwmt_delay_after_err = 2500000; // us
+			cfg_glo.pwmt_delay_after_err = 2700000; // us
 			cfg_glo.pwmt_on_error_repeat_cnt = 3;
 			uint8 j,i;
 			for(j = 0; j < sizeof(cfg_glo.Pass) / sizeof(cfg_glo.Pass[0]); j++)
@@ -279,11 +282,12 @@ void ICACHE_FLASH_ATTR user_initialize(uint8 index)
 //		ets_isr_unmask(1 << ETS_GPIO_INUM);
 	}
 	if(index & 2) {
+		FRAM_Store_Init();
+
 		ets_timer_disarm(&update_cnt_timer);
 		os_timer_setfn(&update_cnt_timer, (os_timer_func_t *)update_cnt_timer_func, NULL);
 		ets_timer_arm_new(&update_cnt_timer, 1000, 1, 1); // repeat msec
 
-		FRAM_Store_Init();
 		irda_init();
 		iot_cloud_init();
 	}

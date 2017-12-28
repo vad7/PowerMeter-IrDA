@@ -201,7 +201,6 @@ void ICACHE_FLASH_ATTR pwmt_send_to_uart(void)
 				convert_to_BCD_1(&cmd_buffer[3], tm.tm_min);
 				convert_to_BCD_1(&cmd_buffer[4], tm.tm_hour);
 				if(uart_queue[0].size == 0) { // Correct time
-					pwmt_time_was_corrected_today = 1;
 					cmd_buffer[1] = cmd_code_correct_time;
 					pwmt_prepare_send(cmd_buffer, 5);
 					dbg_printf("=%02d:%02d:%02d\n", tm.tm_hour, tm.tm_min, tm.tm_sec);
@@ -215,6 +214,7 @@ void ICACHE_FLASH_ATTR pwmt_send_to_uart(void)
 					pwmt_prepare_send(cmd_buffer, 10);
 					dbg_printf("=%02d.%02d.%02d %02d:%02d:%02d\n", tm.tm_mday, tm.tm_mon, tm.tm_year, tm.tm_hour, tm.tm_min, tm.tm_sec);
 				}
+				pwmt_time_was_corrected_today = 1;
 				uart_queue_len = save_uql;
 			}
 		}
@@ -468,8 +468,8 @@ void ICACHE_FLASH_ATTR uart_receive_timer_func(void) // call every PWMT_READ_TIM
 								last_delta = delta;
 							}
 						#endif
-						if(cfg_glo.pwmt_address) { // address must be != 0
-							if(delta < TimeMismatchMaxForCorrect && pwmt_time_was_corrected_today == 0) { // Correct time
+						if(cfg_glo.pwmt_address && pwmt_time_was_corrected_today == 0) { // address must be != 0
+							if(delta < TimeMismatchMaxForCorrect) { // Correct time
 								if(UART_QUEUE_IDX_MAX - uart_queue_len >= 1) { // enough space?
 									uart_queue[uart_queue_len].type = URT_SETTIME;
 									uart_queue[uart_queue_len].size = 0;
@@ -509,7 +509,6 @@ xfill_command_reponse:
 
 void ICACHE_FLASH_ATTR pwmt_request_timer_func(void) // call every: cfg_glo.request_period
 {
-	uart_drv_start();
 	uint8 autosend = !uart_queue_len;
 	if((uart_queue_len == 0 && pwmt_connect_status == PWMT_NOT_CONNECTED)
 			|| (pwmt_last_response == 6 && pwmt_connect_status != PWMT_CONNECTING)) {
