@@ -94,17 +94,28 @@ void ICACHE_FLASH_ATTR update_cnts(time_t time) // 1 minute passed
 	#endif
 }
 
+#define CONNECTION_LOST_FLAG_MAX 10 // sec
+uint8_t connection_lost_flag = 0;
+
 void ICACHE_FLASH_ATTR update_cnt_timer_func(void) // repeat every 1 sec
 {
 	if(!(pwmt_cur.Time && (pwmt_cur.Time >= fram_store.ByMin.LastTime + TIME_STEP_SEC)) || FRAM_Status) return; // dont passed 1 min
-	if(wifi_station_get_connect_status() == STATION_GOT_IP && !flg_open_all_service) {// some problems with wifi st here
-		wifi_station_disconnect();
-		wifi_set_opmode_current(WIFI_DISABLED);
-		#ifdef DEBUG_TO_RAM
-			dbg_printf("WiFiR %u\n", dbg_next_time());
-		#endif
-		wifi_set_opmode_current(wificonfig.b.mode);
-		wifi_station_connect();
+	if((wifi_get_opmode() & STATION_MODE)) {
+		if(wifi_station_get_connect_status() == STATION_GOT_IP) {
+			if(!flg_open_all_service || wifi_station_get_rssi() == 31) {// some problems with wifi st here
+xReconnect:
+				wifi_station_disconnect();
+				wifi_set_opmode_current(WIFI_DISABLED);
+				#ifdef DEBUG_TO_RAM
+					dbg_printf("WiFiR %u\n", dbg_next_time());
+				#endif
+				wifi_set_opmode_current(wificonfig.b.mode);
+				wifi_station_connect();
+			}
+			connection_lost_flag = 0;
+		} else { // ... or here
+			if(++connection_lost_flag > CONNECTION_LOST_FLAG_MAX) goto xReconnect;
+		}
 	}
 	#if DEBUGSOO > 3
 		os_printf("Start %u\n", system_get_time());
