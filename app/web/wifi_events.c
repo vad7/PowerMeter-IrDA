@@ -233,7 +233,7 @@ void ICACHE_FLASH_ATTR open_all_service(int flg)
 	if(mdb_tcp_servcfg == NULL) mdb_tcp_start(syscfg.mdb_port);
 #endif
 #ifdef USE_SNTP
-	if(syscfg.cfg.b.sntp_ena && get_sntp_time() == 0) sntp_inits(UTC_OFFSET, cfg_glo.SNTP_update_delay_min);
+	if(syscfg.cfg.b.sntp_ena && get_sntp_time() == 0) sntp_inits(UTC_OFFSET, cfg_glo.SNTP_update_delay_min, (char*)&cfg_glo.sntp_server);
 #endif
 	if(flg == 0 || flg_open_all_service == false) {
 #ifdef USE_WEB

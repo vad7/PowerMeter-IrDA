@@ -4,7 +4,7 @@
 #include "lwip/ip_addr.h"
 #include <localtime.h>
 
-bool sntp_inits(int8_t UTC_offset, uint16_t update_delay_min) ICACHE_FLASH_ATTR;
+bool sntp_inits(int8_t UTC_offset, uint16_t update_delay_min, char * srv) ICACHE_FLASH_ATTR;
 void sntp_close(void) ICACHE_FLASH_ATTR;
 time_t get_sntp_time(void) ICACHE_FLASH_ATTR;
 time_t get_sntp_localtime(void) ICACHE_FLASH_ATTR;

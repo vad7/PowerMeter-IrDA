@@ -383,6 +383,11 @@ xfram_save:		eeprom_write_block(0, (uint8 *)&fram_store, sizeof(fram_store));
 				cfg_glo.SNTP_update_delay_min = val;
 				sntp_update_delay = val ? val * 60000 : 60000;
 			}
+			else ifcmp("sntps") {
+				os_strncpy(cfg_glo.sntp_server, pvar, sizeof(cfg_glo.sntp_server));
+				sntp_close();
+				sntp_inits(UTC_OFFSET, cfg_glo.SNTP_update_delay_min, (char*)&cfg_glo.sntp_server);
+			}
 			else ifcmp("reset_data") { // all='RESET', mask='RESETn', n = 1|2|4
 				if(rom_xstrcmp(pvar, "RESET")) power_meter_clear_all_data(pvar[5] >= '0' ? ahextoul(pvar + 5) : 0xFF);
 			}
@@ -435,7 +440,7 @@ xfram_save:		eeprom_write_block(0, (uint8 *)&fram_store, sizeof(fram_store));
 				uint8 fl = val ? 1 : 0;
 				if(fl != syscfg.cfg.b.sntp_ena) {
 					syscfg.cfg.b.sntp_ena = fl;
-					if(syscfg.cfg.b.sntp_ena) sntp_inits(UTC_OFFSET, cfg_glo.SNTP_update_delay_min);
+					if(syscfg.cfg.b.sntp_ena) sntp_inits(UTC_OFFSET, cfg_glo.SNTP_update_delay_min, (char*)&cfg_glo.sntp_server);
 					else sntp_close();
 				}
 			}

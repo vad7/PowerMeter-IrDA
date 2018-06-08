@@ -1115,6 +1115,7 @@ void ICACHE_FLASH_ATTR web_int_callback(TCP_SERV_CONN *ts_conn, uint8 *cstr)
 				if(i <= 1) tcp_puts("%u.%02u", cfg_glo.Tariffs[i] / 100, cfg_glo.Tariffs[i] % 100);
 			}
 			else ifcmp("sntp_upd") tcp_puts("%u", cfg_glo.SNTP_update_delay_min);
+			else ifcmp("sntps") tcp_puts("%s", cfg_glo.sntp_server);
 		}
 		else ifcmp("iot_") {	// cfg_
 			cstr += 4;

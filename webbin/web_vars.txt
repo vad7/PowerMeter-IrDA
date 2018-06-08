@@ -40,6 +40,8 @@ PWMT_arPY1
 PWMT_arPY2
 PWMT_arY1
 PWMT_arY2
+sntp_time
+PWMT_T
 inc:timer.inc
 inc:footer.inc
 inc:timer.inc
@@ -340,6 +342,7 @@ cfg_glo_T1En
 cfg_glo_tarif1
 cfg_glo_tarif2
 cfg_glo_sntp_upd
+cfg_glo_sntps
 cfg_glo_TAdj
 cfg_glo_pwmt_addr
 cfg_glo_pass1

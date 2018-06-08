@@ -102,7 +102,7 @@ int8 sntp_status = 0; // 1,2 - ok, -1 - manual set
  */
 #ifndef SNTP_SERVER_ADDRESS
 #if SNTP_SERVER_DNS
-#define SNTP_SERVER_ADDRESS         "pool.ntp.org"
+#define SNTP_SERVER_ADDRESS         "time.nist.gov" // "ru.pool.ntp.org"
 #else
 #define SNTP_SERVER_ADDRESS         "213.161.194.93" /* pool.ntp.org */
 #endif
@@ -698,7 +698,7 @@ void ICACHE_FLASH_ATTR ntp_time_update(void *ignored)
  * Initialize this module.
  * Send out request instantly or after SNTP_STARTUP_DELAY.
  */
-bool ICACHE_FLASH_ATTR sntp_inits(int8_t UTC_offset, uint16_t update_delay_min)
+bool ICACHE_FLASH_ATTR sntp_inits(int8_t UTC_offset, uint16_t update_delay_min, char * srv)
 {
 	sntp_update_delay = update_delay_min; // ? update_delay_min * 60000 : 60000;
 	if (sntp == NULL) {
@@ -714,7 +714,7 @@ bool ICACHE_FLASH_ATTR sntp_inits(int8_t UTC_offset, uint16_t update_delay_min)
 //		sntp->sntp_num_servers = sizeof(sntp->sntp_server_addresses)/sizeof(char *);
 	#error "Not implemented..."
 #else
-		sntp->sntp_server_addresses = (void *)sntp_server_addresses;
+		sntp->sntp_server_addresses = srv != NULL && os_strlen(srv) ? srv : (void *)sntp_server_addresses;
 #endif
 #if DEBUGSOO > 0
 		os_printf("SNTP: start\n");
