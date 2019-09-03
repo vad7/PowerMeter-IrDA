@@ -381,7 +381,7 @@ xfram_save:		eeprom_write_block(0, (uint8 *)&fram_store, sizeof(fram_store));
 			}
 			else ifcmp("sntp_upd") {
 				cfg_glo.SNTP_update_delay_min = val;
-				sntp_update_delay = val ? val * 60000 : 60000;
+				sntp_update_delay = val * 60000L;
 			}
 			else ifcmp("sntps") {
 				os_strncpy(cfg_glo.sntp_server, pvar, sizeof(cfg_glo.sntp_server));

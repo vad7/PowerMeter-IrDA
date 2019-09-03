@@ -300,9 +300,8 @@ void ICACHE_FLASH_ATTR wifi_handle_event_cb(System_Event_t *evt)
 #endif
 #endif // PRINT_EVENT_REASON_ENABLE
 			int opmode = wifi_get_opmode();
-			if((opmode & STATION_MODE)
-			  && wificonfig.st.reconn_timeout != 1
-			  && (st_reconn_count >= COUNT_RESCONN_ST || evt->event_info.disconnected.reason == 4)) { // Assoc_expire
+			if((opmode & STATION_MODE) && ((wificonfig.st.reconn_timeout != 1 && st_reconn_count >= COUNT_RESCONN_ST)
+					|| evt->event_info.disconnected.reason == 4)) { // Assoc_expire
 				if(wifi_station_get_auto_connect() != 0)	{
 					wifi_station_disconnect();
 					if(wificonfig.st.reconn_timeout > 1) {
