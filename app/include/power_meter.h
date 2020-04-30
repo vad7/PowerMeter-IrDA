@@ -13,8 +13,11 @@
 #include "debug_ram.h"
 
 #define FRAM_MAX_BLOCK_AT_ONCE 	64		// FARM SPI read/write is limited to 64 bytes at one time
-#define TIME_STEP_SEC			60 // 1 minute
+#define TIME_STEP_SEC			60 		// 1 minute
 #define IOT_INI_MAX_FILE_SIZE	1024
+#define CONNECTION_LOST_FLAG_MAX 60 	// *period
+uint8_t connection_lost_flag;
+
 //#define SENSOR_PIN				3
 //#define SENSOR_TASK_PRIO		USER_TASK_PRIO_2 // Hi prio, _0,1 - may be used
 //uint8_t SENSOR_FRONT_EDGE;

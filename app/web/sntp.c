@@ -700,7 +700,7 @@ void ICACHE_FLASH_ATTR ntp_time_update(void *ignored)
  */
 bool ICACHE_FLASH_ATTR sntp_inits(int8_t UTC_offset, uint16_t update_delay_min, char * srv)
 {
-	sntp_update_delay = update_delay_min; // ? update_delay_min * 60000 : 60000;
+	sntp_update_delay = update_delay_min * 60000; // ? update_delay_min * 60000 : 60000;
 	if (sntp == NULL) {
 		sntp = (struct ssntp *)os_zalloc(sizeof(struct ssntp));
 		if (sntp == NULL) {

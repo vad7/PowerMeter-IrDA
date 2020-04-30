@@ -84,6 +84,9 @@
 //#define USE_OVERLAY 4000 // включить в трансляцию возможность работы с оверлеями (максимальный размер кода оверлея)
 #define DEBUG_TO_RAM
 
+//#define NO_LOCAL_STORAGE
+#ifndef NO_LOCAL_STORAGE
+
 #define STORE_FLASH_ADDR	0x100000 // Начальный адрес для хранилища во флеш (до верхней ее границы), должен быть выровнен на начало сектора.
 
 #define USE_I2C 	  // драйвер I2C
@@ -97,6 +100,7 @@
 #define I2C_SCL_PIN 0 // SCL on GPIO#
 #endif
 //#define USE_HSPI	  // драйвер  HSPI
+#endif
 
 #define UTC_OFFSET +3 // Moscow time
 
