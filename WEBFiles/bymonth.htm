@@ -60,13 +60,13 @@ function table_add_row(Name, T1, T2) {
 	c.innerHTML = Name;
 	c.align = "left";
 	c = r.insertCell(-1);
-	c.innerHTML = (T1 / div).toFixed(3); c.align = "right";
+	c.innerHTML = (T1 / div).toFixed(3).replace('.',','); c.align = "right";
 	c = r.insertCell(-1);
-	c.innerHTML = (T2 / div).toFixed(3); c.align = "right";
+	c.innerHTML = (T2 / div).toFixed(3).replace('.',','); c.align = "right";
 	c = r.insertCell(-1);
-	c.innerHTML = ((T1 + T2) / div).toFixed(3); c.align = "right";
+	c.innerHTML = ((T1 + T2) / div).toFixed(3).replace('.',','); c.align = "right";
 	c = r.insertCell(-1);
-	c.innerHTML = ((T1 / div) * ~cfg_glo_tarif1~ + (T2 / div) * ~cfg_glo_tarif2~).toFixed(2); c.align = "right";
+	c.innerHTML = ((T1 / div) * ~cfg_glo_tarif1~ + (T2 / div) * ~cfg_glo_tarif2~).toFixed(2).replace('.',','); c.align = "right";
 }
 table_add_row("Предыдущий год", ~PWMT_arPY1~, ~PWMT_arPY2~);
 table_add_row("Этот год", ~PWMT_arY1~, ~PWMT_arY2~);
