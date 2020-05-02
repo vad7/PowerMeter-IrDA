@@ -354,6 +354,7 @@ cfg_glo_csv_delim_td
 cfg_iot_cloud_enable
 cfg_iot_ini
 cfg_glo_Fram_Size
+cfg_glo_Fram_Pos
 cfg_glo_FramFr
 cfg_glo_PulsesPerKWt
 TotalCnt
