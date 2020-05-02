@@ -1091,6 +1091,7 @@ void ICACHE_FLASH_ATTR web_int_callback(TCP_SERV_CONN *ts_conn, uint8 *cstr)
 			else ifcmp("csv_delim") tcp_puts("%c", cfg_glo.csv_delimiter);
 			else ifcmp("PulsesPerKWt") tcp_puts("1000");
 			else ifcmp("Fram_Size") tcp_puts("%u", cfg_glo.Fram_Size);
+			else ifcmp("Fram_Pos") tcp_puts("%u", cfg_glo.Fram_Pos);
 			else ifcmp("FramFr") tcp_puts("%u", cfg_glo.fram_freq);
 			else ifcmp("TAdj") tcp_puts("%d", cfg_glo.TimeAdjust);
 			else ifcmp("T1St") tcp_puts("%04u", cfg_glo.TimeT1Start);

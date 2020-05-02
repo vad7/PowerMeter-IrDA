@@ -13,6 +13,8 @@
 #include "debug_ram.h"
 
 #define FRAM_MAX_BLOCK_AT_ONCE 	64		// FARM SPI read/write is limited to 64 bytes at one time
+#define FRAM_SIZE				32768
+#define FRAM_SAVE_PERIOD		5		// min
 #define TIME_STEP_SEC			60 		// 1 minute
 #define IOT_INI_MAX_FILE_SIZE	1024
 #define CONNECTION_LOST_FLAG_MAX 60 	// *period
@@ -24,7 +26,7 @@ uint8_t connection_lost_flag;
 //uint8_t SENSOR_BACK_EDGE;
 
 typedef struct {
-	uint32 	Fram_Size;			// 32768
+	uint32 	Fram_Size;			// 32768, block size
 	uint16  fram_freq;			// i2c = 400 kHz / spi = 20 MHz
 	uint16	page_refresh_time;	// ms
 	char	csv_delimiter; 		// ','
@@ -47,6 +49,7 @@ typedef struct {
 	uint8	pwmt_on_error_repeat_cnt;
 	uint16  SNTP_update_delay_min; // 0 - don't do it
 	char 	sntp_server[20];
+	uint32	Fram_Pos;			// start pos of
 } CFG_GLO;
 CFG_GLO __attribute__((aligned(4))) cfg_glo;
 
@@ -77,6 +80,7 @@ uint32 KWT_Previous;
 uint32 Web_ChartMaxDays; 	// ~ChartMaxDays~
 uint32 Web_ChMD;			// ~ChMD~, Chart max days for historyall.htm
 uint8  Web_ShowBy; 			// ~ShowBy~ : 0 - all, 1 - by day, 2 - by hour
+uint32 Fram_SaveCountdown;
 //
 void user_initialize(uint8 index) ICACHE_FLASH_ATTR;
 void FRAM_Store_Init(void) ICACHE_FLASH_ATTR;
