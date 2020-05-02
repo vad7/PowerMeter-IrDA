@@ -28,6 +28,7 @@
 #include "lwip/dns.h"
 #include "tcp_srv_conn.h"
 #include "web_utils.h"
+#include "wifi.h"
 #include "wifi_events.h"
 #include "webfs.h"
 #include "web_utils.h"
@@ -370,14 +371,7 @@ void ICACHE_FLASH_ATTR iot_data_clear(void)
 // 1 - start, 0 - end
 void ICACHE_FLASH_ATTR iot_cloud_send(uint8 fwork)
 {
-	if(wifi_station_get_connect_status() != STATION_GOT_IP) return; // st connected?
-	if(!flg_open_all_service) {// some problem with WiFi here
-		wifi_station_disconnect();
-		#ifdef DEBUG_TO_RAM
-			dbg_printf("WiFiR %u\n", dbg_next_time());
-		#endif
-		wifi_station_connect();
-	}
+	if(wifi_station_get_connect_status() != STATION_GOT_IP || !flg_open_all_service) return;  // st connected?
 	if(!cfg_glo.iot_cloud_enable) return; // iot cloud disabled
 	#if DEBUGSOO > 4
 		os_printf("iot_send: %d, %d: %x %x, IP%d(%d)\n", iot_tc_init_flg, fwork, iot_data_first, iot_data_processing, wifi_station_get_connect_status(), flg_open_all_service);
