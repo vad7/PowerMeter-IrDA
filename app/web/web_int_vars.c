@@ -344,9 +344,10 @@ void ICACHE_FLASH_ATTR web_int_vars(TCP_SERV_CONN *ts_conn, uint8 *pcmd, uint8 *
 			}
 			else ifcmp("LastDay") {
 				fram_store.LastDay = val;
-xfram_save:		eeprom_write_block(0, (uint8 *)&fram_store, sizeof(fram_store));
+xfram_save:		eeprom_write_block(cfg_glo.Fram_Pos, (uint8 *)&fram_store, sizeof(fram_store));
 			}
 			else ifcmp("Fram_Size") cfg_glo.Fram_Size = val;
+			else ifcmp("Fram_Pos") cfg_glo.Fram_Pos = val;
 			//else ifcmp("PulsesPerKWt") cfg_glo.PulsesPer0_01KWt = val / 100;
 			else ifcmp("csv_delim_td") cfg_glo.csv_delimiter_total_dec = pvar[0];
 			else ifcmp("csv_delim_t") cfg_glo.csv_delimiter_total = pvar[0];

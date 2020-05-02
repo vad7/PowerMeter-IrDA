@@ -200,14 +200,34 @@ xReconnect:
 		   		return;
 			}
 		}
+		Fram_SaveCountdown = 1;
 	}
-	if(eeprom_write_block(0, (uint8 *)&fram_store, save_size)) {
-		#if DEBUGSOO > 4
-	   		os_printf("EW dAr %u\n", save_size);
-		#endif
-   		dbg_printf("EW dAr %u\n", save_size);
-		FRAM_Status = 2;
-		return;
+	if(--Fram_SaveCountdown == 0) {
+		Fram_SaveCountdown = FRAM_SAVE_PERIOD;
+		if(eeprom_write_block(cfg_glo.Fram_Pos, (uint8 *)&fram_store, save_size)) {
+			#if DEBUGSOO > 4
+				os_printf("EW dAr %u\n", save_size);
+			#endif
+			dbg_printf("EW dAr %u\n", save_size);
+			FRAM_Status = 2;
+			return;
+		}
+		if(save_size == sizeof(fram_store)) {
+			FRAM_STORE __attribute__((aligned(4))) fram_store_test;
+			if(eeprom_read_block(cfg_glo.Fram_Pos, (uint8 *)&fram_store_test, sizeof(fram_store))) {
+				#if DEBUGSOO > 4
+					os_printf("ER f_s\n");
+				#endif
+				dbg_printf("ER dAr %u\n", save_size);
+				return;
+			}
+			if(os_memcmp(&fram_store, &fram_store_test, sizeof(fram_store)) != 0) {
+				dbg_printf("FRAM bad\n");
+				cfg_glo.Fram_Pos += sizeof(fram_store);
+				if(cfg_glo.Fram_Pos > FRAM_SIZE - sizeof(fram_store)) cfg_glo.Fram_Pos = 0;
+				write_power_meter_cfg();
+			}
+		}
 	}
 	#if DEBUGSOO > 4
 		os_printf("End %u\n", system_get_time());
@@ -220,7 +240,7 @@ void ICACHE_FLASH_ATTR FRAM_Store_Init(void)
 {
 	fram_init();
 	// restore workspace from FRAM
-	if(eeprom_read_block(0, (uint8 *)&fram_store, sizeof(fram_store))) {
+	if(eeprom_read_block(cfg_glo.Fram_Pos, (uint8 *)&fram_store, sizeof(fram_store))) {
 		#if DEBUGSOO > 4
 			os_printf("ER f_s\n");
 		#endif
@@ -232,7 +252,7 @@ void ICACHE_FLASH_ATTR FRAM_Store_Init(void)
 		return;
 #else
 		// clear FRAM
-		if(eeprom_write_block(0, (uint8 *)&fram_store, sizeof(fram_store))) {
+		if(eeprom_write_block(cfg_glo.Fram_Pos, (uint8 *)&fram_store, sizeof(fram_store))) {
 			#if DEBUGSOO > 2
 				os_printf("EW init f_s\n");
 			#endif
@@ -257,6 +277,7 @@ void ICACHE_FLASH_ATTR user_initialize(uint8 index)
 			// defaults
 			os_memset(&cfg_glo, 0, sizeof(cfg_glo));
 			cfg_glo.Fram_Size = sizeof(fram_store); // 32768
+			cfg_glo.Fram_Pos = 0;
 			cfg_glo.fram_freq = 400;
 			cfg_glo.csv_delimiter = ',';
 			cfg_glo.csv_delimiter_dec = '.';
@@ -276,6 +297,7 @@ void ICACHE_FLASH_ATTR user_initialize(uint8 index)
 			for(j = 0; j < sizeof(cfg_glo.Pass) / sizeof(cfg_glo.Pass[0]); j++)
 				for(i = 0; i < sizeof(cfg_glo.Pass[0]); i++) cfg_glo.Pass[j][i] = j+1; // A:.....2
 		}
+		if(cfg_glo.Fram_Pos > FRAM_SIZE - sizeof(fram_store)) cfg_glo.Fram_Pos = 0;
 		ArrayOfCntsSize = spi_flash_real_size() - ArrayOfCntsStart;
 		iot_data_first = NULL;
 		LastCnt = 0;
@@ -284,6 +306,7 @@ void ICACHE_FLASH_ATTR user_initialize(uint8 index)
 		Web_ChartMaxDays = 31;
 		Web_ChMD = 3;
 		Web_ShowBy = 0;
+		Fram_SaveCountdown = FRAM_SAVE_PERIOD;
 		#if DEBUGSOO > 3
 			os_printf("FSize=%u, CntSize=%u\n", cfg_glo.Fram_Size, ArrayOfCntsSize);
 		#endif
@@ -328,7 +351,7 @@ void ICACHE_FLASH_ATTR power_meter_clear_all_data(uint8 mask)
 	//ets_isr_mask(0xFFFFFFFF); // mask all interrupts
 	if(mask & 1) {
 		os_memset(&fram_store, 0, sizeof(fram_store));
-		if(eeprom_write_block(0, (uint8 *)&fram_store, sizeof(fram_store))) {
+		if(eeprom_write_block(cfg_glo.Fram_Pos, (uint8 *)&fram_store, sizeof(fram_store))) {
 			#if DEBUGSOO > 0
 				os_printf("Error clear FRAM\n");
 			#endif
