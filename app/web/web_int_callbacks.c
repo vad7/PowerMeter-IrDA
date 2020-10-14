@@ -700,7 +700,7 @@ xNextDay:
 // Output i2c from eeprom web_conn->udata_start, end: web_conn->udata_stop
 void ICACHE_FLASH_ATTR web_get_i2c_eeprom(TCP_SERV_CONN *ts_conn)
 {
-    WEB_SRV_CONN *web_conn = (WEB_SRV_CONN *)ts_conn->linkd;
+	WEB_SRV_CONN *web_conn = (WEB_SRV_CONN *)ts_conn->linkd;
     // Check if this is a first round call
     if(CheckSCB(SCB_RETRYCB)==0) {
     	if(web_conn->udata_start == web_conn->udata_stop) return;
@@ -708,6 +708,10 @@ void ICACHE_FLASH_ATTR web_get_i2c_eeprom(TCP_SERV_CONN *ts_conn)
 		os_printf("i2c from:%u ", web_conn->udata_start);
 #endif
     }
+	if(Fram_halted) {
+		ClrSCB(SCB_RETRYCB);
+		return;
+	}
     // Get/put as many bytes as possible
     unsigned int len = mMIN(web_conn->msgbufsize - web_conn->msgbuflen, mMIN(FRAM_MAX_BLOCK_AT_ONCE, cfg_glo.Fram_Size));
 #if DEBUGSOO > 2
@@ -1106,6 +1110,7 @@ void ICACHE_FLASH_ATTR web_int_callback(TCP_SERV_CONN *ts_conn, uint8 *cstr)
 				else ifcmp("derr") tcp_puts("%u", cfg_glo.pwmt_delay_after_err);
 				else ifcmp("addr") tcp_puts("0x%02X", cfg_glo.pwmt_address);
 				else ifcmp("cerr") tcp_puts("%u", cfg_glo.pwmt_on_error_repeat_cnt);
+				else ifcmp("rbt") tcp_puts("%u", cfg_glo.repeated_errors_thr);
 			}
 			else ifcmp("pass") {
 				uint8 i = atoi(cstr + 4) - 1;

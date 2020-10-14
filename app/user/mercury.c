@@ -342,6 +342,7 @@ void ICACHE_FLASH_ATTR uart_receive_timer_func(void) // call every PWMT_READ_TIM
 					#endif
 					uart_queue[0].flag = UART_RESPONSE_READY_OK;
 					pwmt_last_response = UART_Buffer_idx == 4 ? UART_Buffer[1] : 0;
+					pwmt_repeated_errors = 0;
 				} else { // error
 					pwmt_last_response = 6 + (UART_Buffer_idx >= 4); // 6 - Not responding, 7 - CRC error
 					#if DEBUGSOO > 4
@@ -353,6 +354,13 @@ void ICACHE_FLASH_ATTR uart_receive_timer_func(void) // call every PWMT_READ_TIM
 					} else {
 						pwmt_read_errors++;
 					}
+					if(++pwmt_repeated_errors > cfg_glo.repeated_errors_thr) {
+						pwmt_repeated_errors--;
+						Fram_halted = 1;
+						GPIO_OUT_W1TC = (1<<2);//I2C_SDA_PIN);
+						GPIO_OUT_W1TC = (1<<0);//I2C_SCL_PIN);
+					}
+
 					if(pwmt_connect_status == PWMT_CONNECTING || pwmt_repeat_on_error_cnt > 0) { // reconnect after cfg_glo.pwmt_delay_after_err
 						if(pwmt_connect_status != PWMT_CONNECTING) pwmt_repeat_on_error_cnt--;
 						uart_queue[0].flag = UART_SEND_WAITING;
@@ -525,6 +533,7 @@ void ICACHE_FLASH_ATTR irda_init(void)
 	uarts_init();
 	pwmt_connect_status = PWMT_NOT_CONNECTED;
 	pwmt_time_was_corrected_today = 0;
+	pwmt_repeated_errors = 0;
 	uart_queue_len = 0;
 	ets_timer_disarm(&uart_receive_timer);
 	os_timer_setfn(&uart_receive_timer, (os_timer_func_t *)uart_receive_timer_func, NULL);

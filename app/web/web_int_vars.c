@@ -344,7 +344,7 @@ void ICACHE_FLASH_ATTR web_int_vars(TCP_SERV_CONN *ts_conn, uint8 *pcmd, uint8 *
 			}
 			else ifcmp("LastDay") {
 				fram_store.LastDay = val;
-xfram_save:		eeprom_write_block(cfg_glo.Fram_Pos, (uint8 *)&fram_store, sizeof(fram_store));
+xfram_save:		if(!Fram_halted) eeprom_write_block(cfg_glo.Fram_Pos, (uint8 *)&fram_store, sizeof(fram_store));
 			}
 			else ifcmp("Fram_Size") cfg_glo.Fram_Size = val;
 			else ifcmp("Fram_Pos") cfg_glo.Fram_Pos = val;
@@ -371,6 +371,7 @@ xfram_save:		eeprom_write_block(cfg_glo.Fram_Pos, (uint8 *)&fram_store, sizeof(f
 		        else ifcmp("derr") cfg_glo.pwmt_delay_after_err = val;
 		        else ifcmp("addr") cfg_glo.pwmt_address = val;
 		        else ifcmp("cerr") cfg_glo.pwmt_on_error_repeat_cnt = val;
+		        else ifcmp("rbt") cfg_glo.repeated_errors_thr = val;
 			}
 			else ifcmp("pass") {
 	        	uint8 i = atoi(cstr + 4) - 1;

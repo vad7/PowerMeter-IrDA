@@ -56,6 +56,7 @@ uint8 pwmt_command_response_status; // 0xFF - waiting, otherwise pwmt_last_respo
 uint8 pwmt_repeat_on_error_cnt;
 uint32 pwmt_read_errors; // total count read error pwmt
 uint8 pwmt_time_was_corrected_today;
+uint8 pwmt_repeated_errors;
 
 typedef enum
 {

@@ -202,7 +202,7 @@ xReconnect:
 		}
 		Fram_SaveCountdown = 1;
 	}
-	if(--Fram_SaveCountdown == 0) {
+	if(!Fram_halted && --Fram_SaveCountdown == 0) {
 		Fram_SaveCountdown = FRAM_SAVE_PERIOD;
 		if(eeprom_write_block(cfg_glo.Fram_Pos, (uint8 *)&fram_store, save_size)) {
 			#if DEBUGSOO > 4
@@ -261,6 +261,7 @@ void ICACHE_FLASH_ATTR FRAM_Store_Init(void)
 #endif
 	}
 	FRAM_Status = 0;
+
 	#if DEBUGSOO > 4
 		struct tm tm;
 		_localtime(&fram_store.ByMin.LastTime, &tm);
@@ -307,6 +308,7 @@ void ICACHE_FLASH_ATTR user_initialize(uint8 index)
 		Web_ChMD = 3;
 		Web_ShowBy = 0;
 		Fram_SaveCountdown = FRAM_SAVE_PERIOD;
+		Fram_halted = 0;
 		#if DEBUGSOO > 3
 			os_printf("FSize=%u, CntSize=%u\n", cfg_glo.Fram_Size, ArrayOfCntsSize);
 		#endif
@@ -351,7 +353,7 @@ void ICACHE_FLASH_ATTR power_meter_clear_all_data(uint8 mask)
 	//ets_isr_mask(0xFFFFFFFF); // mask all interrupts
 	if(mask & 1) {
 		os_memset(&fram_store, 0, sizeof(fram_store));
-		if(eeprom_write_block(cfg_glo.Fram_Pos, (uint8 *)&fram_store, sizeof(fram_store))) {
+		if(!Fram_halted && eeprom_write_block(cfg_glo.Fram_Pos, (uint8 *)&fram_store, sizeof(fram_store))) {
 			#if DEBUGSOO > 0
 				os_printf("Error clear FRAM\n");
 			#endif
