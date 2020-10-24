@@ -124,7 +124,8 @@ xReconnect:
 			}
 		}
 	}
-	if(!(pwmt_cur.Time && (pwmt_cur.Time >= fram_store.ByMin.LastTime + TIME_STEP_SEC)) || FRAM_Status) return; // dont passed 1 min
+	if(pwmt_cur.Time == 0) return; else pwmt_cur.Time++;
+	if(!(pwmt_cur.Time >= fram_store.ByMin.LastTime + TIME_STEP_SEC) || FRAM_Status) return; // dont passed 1 min
 
 	#if DEBUGSOO > 3
 		os_printf("Start %u\n", system_get_time());
