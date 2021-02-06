@@ -222,8 +222,8 @@ void ICACHE_FLASH_ATTR pwmt_send_to_uart(void)
 		UART_Buffer_idx = 0;
 		if(uart_tx_buf(uart_queue[0].buffer, uart_queue[0].len) == uart_queue[0].len) {
 			uart_queue[0].flag = UART_RESPONSE_WAITING;
-			uart_queue[0].time = system_get_time();
 		}
+		uart_queue[0].time = system_get_time();
 	}
 }
 
