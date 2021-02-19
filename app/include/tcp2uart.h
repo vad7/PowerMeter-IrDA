@@ -56,6 +56,7 @@ uint32_t UART0_IrDA_RX_CLK; // will be set after TX all data
 void uart0_set_flow(bool flow_en) ICACHE_FLASH_ATTR;
 void update_rts0(void) ICACHE_FLASH_ATTR;
 void update_mux_uart0(void) ICACHE_FLASH_ATTR;
+void disable_mux_uart0(void) ICACHE_FLASH_ATTR;
 #endif
 void update_mux_txd1(void) ICACHE_FLASH_ATTR;
 void set_uartx_invx(uint8 uartn, uint8 set, uint32 bit_mask) ICACHE_FLASH_ATTR;

@@ -337,6 +337,7 @@ cfg_glo_pwmt_rtout
 cfg_glo_pwmt_tout
 cfg_glo_pwmt_derr
 cfg_glo_pwmt_cerr
+cfg_glo_sleep_err
 cfg_glo_pwmt_rbt
 cfg_glo_T1St
 cfg_glo_T1En

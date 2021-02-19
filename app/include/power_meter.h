@@ -51,6 +51,7 @@ typedef struct {
 	char 	sntp_server[20];
 	uint32	Fram_Pos;			// start pos of
 	uint8	repeated_errors_thr;// power restart required after threshold is reached
+	uint16  sleep_after_series_errors; // sec
 } CFG_GLO;
 CFG_GLO __attribute__((aligned(4))) cfg_glo;
 
@@ -83,6 +84,7 @@ uint32 Web_ChMD;			// ~ChMD~, Chart max days for historyall.htm
 uint8  Web_ShowBy; 			// ~ShowBy~ : 0 - all, 1 - by day, 2 - by hour
 uint32 Fram_SaveCountdown;
 uint8  Fram_halted;
+uint16 sleep_after_errors_cnt; // sec
 //
 void user_initialize(uint8 index) ICACHE_FLASH_ATTR;
 void FRAM_Store_Init(void) ICACHE_FLASH_ATTR;

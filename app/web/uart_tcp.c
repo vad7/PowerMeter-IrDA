@@ -130,6 +130,15 @@ void ICACHE_FLASH_ATTR update_rts0(void)
 #endif
 	}
 }
+
+void ICACHE_FLASH_ATTR disable_mux_uart0(void)
+{
+	MUX_TX_UART0 = (1<<GPIO_MUX_FUN_BIT0) | (1<<GPIO_MUX_FUN_BIT1) | (1<<GPIO_MUX_PULLDOWN_BIT); // VAL_MUX_TX_UART0_OFF;
+	GPIO_OUT_W1TC = (1<<1); // GPIO1
+	MUX_RX_UART0 = VAL_MUX_RX_UART0_OFF;
+//	MUX_RTS_UART0 = VAL_MUX_RTS_UART0_OFF;
+//	MUX_CTS_UART0 = VAL_MUX_CTS_UART0_OFF;
+}
 //=============================================================================
 // Обновить mux выводов UART0
 // update_mux_txd1()

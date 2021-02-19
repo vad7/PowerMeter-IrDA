@@ -364,6 +364,7 @@ xfram_save:		if(!Fram_halted) eeprom_write_block(cfg_glo.Fram_Pos, (uint8 *)&fra
 				if(reinit) irda_init();
 			}
 			else ifcmp("time_maxmism") cfg_glo.TimeMaxMismatch = val;
+			else ifcmp("sleep_err") cfg_glo.sleep_after_series_errors = val;
 			else ifcmp("pwmt_") {
 				cstr += 5;
 				ifcmp("tout") cfg_glo.pwmt_response_timeout = val;

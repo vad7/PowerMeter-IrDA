@@ -310,9 +310,9 @@ void ICACHE_FLASH_ATTR pwmt_read_time_array(uint8 arr)
 	pwmt_send_to_uart();
 }
 
-void ICACHE_FLASH_ATTR uart_receive_timer_func(void) // call every PWMT_READ_TIMEOUT
+void ICACHE_FLASH_ATTR uart_receive_timer_func(void) // call every cfg_glo.pwmt_read_timeout
 {
-	if(uart_queue_len) {
+	if(uart_queue_len && !sleep_after_errors_cnt) {
 		uint32 dt = system_get_time() - uart_queue[0].time;
 		uint8 fl = uart_queue[0].flag;
 		if(fl == UART_SEND_WAITING) {
@@ -366,17 +366,20 @@ void ICACHE_FLASH_ATTR uart_receive_timer_func(void) // call every PWMT_READ_TIM
 						uart_queue[0].flag = UART_SEND_WAITING;
 						uart_queue[0].time = system_get_time();
 					} else {
+						pwmt_repeat_on_error_cnt = cfg_glo.pwmt_on_error_repeat_cnt;
 						dbg_printf("Eu%u,%u:%d,%d=", dbg_next_time(), dt, pwmt_last_response, UART_Buffer_idx);
 						uint8 jjj;
 						for(jjj = 0; jjj < uart_queue[0].len; jjj++) {
 							dbg_printf("%02X", uart_queue[0].buffer[jjj]);
 						}
 						//dbg_printf("\n");
-
 						dbg_printf(", del\n");
 						uart_queue[0].flag = UART_DELETED;
-						pwmt_send_to_uart();
-						pwmt_repeat_on_error_cnt = cfg_glo.pwmt_on_error_repeat_cnt;
+						if(cfg_glo.sleep_after_series_errors) { // UART0 off
+							sleep_after_errors_cnt = cfg_glo.sleep_after_series_errors;
+							uart_drv_close();
+							disable_mux_uart0();
+						} else pwmt_send_to_uart();
 					}
 				}
 			}
@@ -517,6 +520,7 @@ xfill_command_reponse:
 
 void ICACHE_FLASH_ATTR pwmt_request_timer_func(void) // call every: cfg_glo.request_period
 {
+	if(sleep_after_errors_cnt) return;
 	uint8 autosend = !uart_queue_len;
 	if((uart_queue_len == 0 && pwmt_connect_status == PWMT_NOT_CONNECTED)
 			|| (pwmt_last_response == 6 && pwmt_connect_status != PWMT_CONNECTING)) {

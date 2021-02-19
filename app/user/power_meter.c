@@ -20,6 +20,7 @@
 #include "sdk/libmain.h"
 #include "driver/eeprom.h"
 #include "hw/gpio_register.h"
+#include "tcp2uart.h"
 #include "wifi.h"
 #include "wifi_events.h"
 #include "power_meter.h"
@@ -123,6 +124,10 @@ xReconnect:
 				goto xReconnect;
 			}
 		}
+	}
+	if(sleep_after_errors_cnt) if(--sleep_after_errors_cnt == 0) {
+		update_mux_uart0();
+		pwmt_send_to_uart();
 	}
 	if(pwmt_cur.Time == 0) return; else pwmt_cur.Time++;
 	if(!(pwmt_cur.Time >= fram_store.ByMin.LastTime + TIME_STEP_SEC) || FRAM_Status) return; // dont passed 1 min
@@ -310,6 +315,7 @@ void ICACHE_FLASH_ATTR user_initialize(uint8 index)
 		Web_ShowBy = 0;
 		Fram_SaveCountdown = FRAM_SAVE_PERIOD;
 		Fram_halted = 0;
+		sleep_after_errors_cnt = 0;
 		#if DEBUGSOO > 3
 			os_printf("FSize=%u, CntSize=%u\n", cfg_glo.Fram_Size, ArrayOfCntsSize);
 		#endif

@@ -1103,6 +1103,7 @@ void ICACHE_FLASH_ATTR web_int_callback(TCP_SERV_CONN *ts_conn, uint8 *cstr)
 			else ifcmp("time_maxmism") tcp_puts("%u", cfg_glo.TimeMaxMismatch);
 			else ifcmp("refresh_t") tcp_puts("%u", cfg_glo.page_refresh_time);
 			else ifcmp("req_period") tcp_puts("%u", cfg_glo.request_period);
+			else ifcmp("sleep_err") tcp_puts("%u", cfg_glo.sleep_after_series_errors);
 			else ifcmp("pwmt_") {
 				cstr += 5;
 				ifcmp("rtout") tcp_puts("%u", cfg_glo.pwmt_read_timeout);
