@@ -125,9 +125,15 @@ xReconnect:
 			}
 		}
 	}
-	if(sleep_after_errors_cnt) if(--sleep_after_errors_cnt == 0) {
-		update_mux_uart0();
-		pwmt_send_to_uart();
+	if(sleep_after_errors_cnt != 0) {
+		sleep_after_errors_cnt--;
+		if(sleep_after_errors_cnt == 0) {
+			dbg_printf("ErrWake\n");
+			update_mux_uart0();
+			if(pwmt_connect_status == PWMT_CONNECTED) uart_queue[0].flag = UART_DELETED;
+			pwmt_repeat_on_error_cnt = cfg_glo.pwmt_on_error_repeat_cnt;
+			pwmt_send_to_uart();
+		}
 	}
 	if(pwmt_cur.Time == 0) return; else pwmt_cur.Time++;
 	if(!(pwmt_cur.Time >= fram_store.ByMin.LastTime + TIME_STEP_SEC) || FRAM_Status) return; // dont passed 1 min

@@ -312,7 +312,7 @@ void ICACHE_FLASH_ATTR pwmt_read_time_array(uint8 arr)
 
 void ICACHE_FLASH_ATTR uart_receive_timer_func(void) // call every cfg_glo.pwmt_read_timeout
 {
-	if(uart_queue_len && !sleep_after_errors_cnt) {
+	if(uart_queue_len && sleep_after_errors_cnt == 0) {
 		uint32 dt = system_get_time() - uart_queue[0].time;
 		uint8 fl = uart_queue[0].flag;
 		if(fl == UART_SEND_WAITING) {
@@ -361,10 +361,17 @@ void ICACHE_FLASH_ATTR uart_receive_timer_func(void) // call every cfg_glo.pwmt_
 						GPIO_OUT_W1TC = (1<<0);//I2C_SCL_PIN);
 					}
 
-					if(pwmt_connect_status == PWMT_CONNECTING || pwmt_repeat_on_error_cnt > 0) { // reconnect after cfg_glo.pwmt_delay_after_err
-						if(pwmt_connect_status != PWMT_CONNECTING) pwmt_repeat_on_error_cnt--;
-						uart_queue[0].flag = UART_SEND_WAITING;
-						uart_queue[0].time = system_get_time();
+					if(pwmt_connect_status != PWMT_CONNECTED || pwmt_repeat_on_error_cnt > 0) { // reconnect after cfg_glo.pwmt_delay_after_err
+						if(pwmt_repeat_on_error_cnt == 0 && cfg_glo.sleep_after_series_errors != 0) { // UART0 off
+							sleep_after_errors_cnt = cfg_glo.sleep_after_series_errors;
+							dbg_printf("ErrSleepC\n");
+							uart_drv_close();
+							disable_mux_uart0();
+						} else {
+							uart_queue[0].flag = UART_SEND_WAITING;
+							uart_queue[0].time = system_get_time();
+						}
+						if(pwmt_repeat_on_error_cnt) pwmt_repeat_on_error_cnt--;
 					} else {
 						pwmt_repeat_on_error_cnt = cfg_glo.pwmt_on_error_repeat_cnt;
 						dbg_printf("Eu%u,%u:%d,%d=", dbg_next_time(), dt, pwmt_last_response, UART_Buffer_idx);
@@ -375,8 +382,9 @@ void ICACHE_FLASH_ATTR uart_receive_timer_func(void) // call every cfg_glo.pwmt_
 						//dbg_printf("\n");
 						dbg_printf(", del\n");
 						uart_queue[0].flag = UART_DELETED;
-						if(cfg_glo.sleep_after_series_errors) { // UART0 off
+						if(cfg_glo.sleep_after_series_errors != 0) { // UART0 off
 							sleep_after_errors_cnt = cfg_glo.sleep_after_series_errors;
+							dbg_printf("ErrSleep\n");
 							uart_drv_close();
 							disable_mux_uart0();
 						} else pwmt_send_to_uart();
@@ -520,7 +528,7 @@ xfill_command_reponse:
 
 void ICACHE_FLASH_ATTR pwmt_request_timer_func(void) // call every: cfg_glo.request_period
 {
-	if(sleep_after_errors_cnt) return;
+	if(sleep_after_errors_cnt != 0) return;
 	uint8 autosend = !uart_queue_len;
 	if((uart_queue_len == 0 && pwmt_connect_status == PWMT_NOT_CONNECTED)
 			|| (pwmt_last_response == 6 && pwmt_connect_status != PWMT_CONNECTING)) {
@@ -538,6 +546,7 @@ void ICACHE_FLASH_ATTR irda_init(void)
 	pwmt_connect_status = PWMT_NOT_CONNECTED;
 	pwmt_time_was_corrected_today = 0;
 	pwmt_repeated_errors = 0;
+	pwmt_repeat_on_error_cnt = cfg_glo.pwmt_on_error_repeat_cnt;
 	uart_queue_len = 0;
 	ets_timer_disarm(&uart_receive_timer);
 	os_timer_setfn(&uart_receive_timer, (os_timer_func_t *)uart_receive_timer_func, NULL);
