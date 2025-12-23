@@ -1002,7 +1002,13 @@ void ICACHE_FLASH_ATTR web_int_callback(TCP_SERV_CONN *ts_conn, uint8 *cstr)
 	  ifcmp("cid") tcp_puts("%08x", system_get_chip_id());
 	  else ifcmp("fid") tcp_puts("%08x", spi_flash_get_id());
 	  else ifcmp("fsize") tcp_puts("%u", spi_flash_real_size()); // flashchip->chip_size
-	  else ifcmp("sdkver") tcp_puts(system_get_sdk_version());
+	  else ifcmp("sdkver") {
+#ifdef UART0_IRDA
+		  tcp_puts("%s, IrDA", system_get_sdk_version());
+#else
+		  tcp_puts("%s, MCP2120", system_get_sdk_version());
+#endif
+	  }
 	  else ifcmp("sysver") tcp_strcpy_fd(SYS_VERSION);
 	  else ifcmp("webver") tcp_strcpy_fd(WEB_SVERSION);
 	  else ifcmp("heap") tcp_puts("%u", system_get_free_heap_size());

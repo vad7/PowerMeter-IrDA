@@ -749,7 +749,7 @@ void system_uart_de_swap(void)
 
 const char *system_get_sdk_version(void)
 {
-	return "1.3.0";
+	return "1.3.1";
 }
 
 uint32 ICACHE_FLASH_ATTR system_get_checksum(uint8 *ptr, uint32 len)
