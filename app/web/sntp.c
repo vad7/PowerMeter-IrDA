@@ -346,7 +346,7 @@ static void ICACHE_FLASH_ATTR sntp_process(u32_t *receive_timestamp) {
 	/* display local time from GMT time */
 	LWIP_DEBUGF(SNTP_DEBUG_TRACE, ("sntp_process: %s", ctime(&t)));
 #endif /* SNTP_CALC_TIME_US */
-	if(!sntp_repeat_flag && sntp->sntp_time && sntp->sntp_time - t > 180) {
+	if(!sntp_repeat_flag && (sntp->sntp_time == 0 || sntp->sntp_time - t > 180)) {
 		sntp_repeat_flag = 1;
 		sys_timeout((u32_t) SNTP_UPDATE_REPEAT_DELAY, sntp_request, NULL);
 	} else {
