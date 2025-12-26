@@ -161,6 +161,7 @@ uint32  sntp_update_delay;
 //#if (SNTP_UPDATE_DELAY < 15000) && !SNTP_SUPPRESS_DELAY_CHECK
 //#error "SNTPv4 RFC 4330 enforces a minimum update time of 15 seconds!"
 //#endif
+#define SNTP_UPDATE_REPEAT_DELAY	101 // Repeat the request after this time when the time difference is more than 180 seconds, sec
 
 /** SNTP macro to change system time and/or the update the RTC clock */
 #ifndef SNTP_SET_SYSTEM_TIME
@@ -312,6 +313,7 @@ struct ssntp {
 struct ssntp *sntp DATA_IRAM_ATTR;
 
 int16_t sntp_time_adjust = 0; // sec
+uint8_t sntp_repeat_flag = 0;
 
 /* function prototypes */
 static void sntp_request(void *arg) ICACHE_FLASH_ATTR;
@@ -344,10 +346,17 @@ static void ICACHE_FLASH_ATTR sntp_process(u32_t *receive_timestamp) {
 	/* display local time from GMT time */
 	LWIP_DEBUGF(SNTP_DEBUG_TRACE, ("sntp_process: %s", ctime(&t)));
 #endif /* SNTP_CALC_TIME_US */
-	sntp->sntp_time = t;
-	os_timer_disarm(&sntp->ntp_timer);
-	ets_timer_arm_new(&sntp->ntp_timer, 1000, 1, 1);
-	sntp_status = 1;
+	if(!sntp_repeat_flag && (sntp->sntp_time == 0 || sntp->sntp_time - t > 180)) {
+		sntp_repeat_flag = 1;
+		sys_timeout((u32_t) SNTP_UPDATE_REPEAT_DELAY, sntp_request, NULL);
+	} else {
+		sntp_repeat_flag = 0;
+		sys_timeout((u32_t) SNTP_UPDATE_DELAY, sntp_request, NULL);
+		sntp->sntp_time = t;
+		os_timer_disarm(&sntp->ntp_timer);
+		ets_timer_arm_new(&sntp->ntp_timer, 1000, 1, 1);
+		sntp_status = 1;
+	}
 }
 
 /**
@@ -579,8 +588,7 @@ void ICACHE_FLASH_ATTR sntp_send_request(ip_addr_t *server_addr)
 /**
  * DNS found callback when using DNS names as server address.
  */
-static void ICACHE_FLASH_ATTR
-sntp_dns_found(const char* hostname, ip_addr_t *ipaddr, void *arg)
+static void ICACHE_FLASH_ATTR sntp_dns_found(const char* hostname, ip_addr_t *ipaddr, void *arg)
 {
 	LWIP_UNUSED_ARG(hostname);
 	LWIP_UNUSED_ARG(arg);

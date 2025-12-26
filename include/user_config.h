@@ -105,7 +105,7 @@
 #define UTC_OFFSET +3 // Moscow time
 
 #define USE_UART0	  // UART0 in/out
-#define UART0_IRDA	  // Hardware esp8266 IrDA, uncomment USE_TIMER0 and TIMER0_USE_NMI_VECTOR in sdk_config.h
+//#define UART0_IRDA	  // Hardware esp8266 IrDA, uncomment USE_TIMER0 and TIMER0_USE_NMI_VECTOR in sdk_config.h
 #define USE_MERCURY	  // UART0 as interface to Mercury power meter (speed 9600b)
 //#define USE_I2S
 //#define I2S_CLOCK_OUT // GPIO2 (I2SO_WS)
