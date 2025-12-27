@@ -312,9 +312,13 @@ void ICACHE_FLASH_ATTR pwmt_read_time_array(uint8 arr)
 
 void ICACHE_FLASH_ATTR uart_receive_timer_func(void) // call every cfg_glo.pwmt_read_timeout
 {
+	static uint8_t _uart_buf_idx = 0;
 	if(uart_queue_len && sleep_after_errors_cnt == 0) {
 		uint32 dt = system_get_time() - uart_queue[0].time;
 		uint8 fl = uart_queue[0].flag;
+		if(Debug_level == 4) {
+			if(UART_Buffer_idx && UART_Buffer_idx != _uart_buf_idx && _uart_buf_idx <= UART_Buffer_idx) dbg_printf("U:%X\n", UART_Buffer[_uart_buf_idx++]);
+		}
 		if(fl == UART_SEND_WAITING) {
 			if(dt >= cfg_glo.pwmt_delay_after_err) {
 				#if DEBUGSOO > 4
@@ -324,6 +328,7 @@ void ICACHE_FLASH_ATTR uart_receive_timer_func(void) // call every cfg_glo.pwmt_
 			}
 		} else if(fl & UART_RESPONSE_WAITING) { // UART_RESPONSE_WAITING or UART_RESPONSE_READING
 			if(dt >= (fl == UART_RESPONSE_WAITING ? cfg_glo.pwmt_response_timeout : cfg_glo.pwmt_read_timeout)) {
+				_uart_buf_idx = 0;
 				#if DEBUGSOO > 5
 					os_printf("UART(%u)%d: ", system_get_time(), fl);
 					uint8 jjj;
@@ -348,7 +353,9 @@ void ICACHE_FLASH_ATTR uart_receive_timer_func(void) // call every cfg_glo.pwmt_
 					#if DEBUGSOO > 4
 						os_printf("Err(%u)%d=%d, %d\n", system_get_time(), fl, pwmt_last_response, UART_Buffer_idx);
 					#endif
-
+					if(UART_Buffer_idx)	{
+						if(pwmt_last_response == 7) dbg_printf("ECRC\n"); else dbg_printf("ENR\n");
+					}
 					if(uart_queue[0].type == URT_STR) { // custom command
 						goto xfill_command_reponse;
 					} else {
@@ -360,7 +367,6 @@ void ICACHE_FLASH_ATTR uart_receive_timer_func(void) // call every cfg_glo.pwmt_
 						GPIO_OUT_W1TC = (1<<2);//I2C_SDA_PIN);
 						GPIO_OUT_W1TC = (1<<0);//I2C_SCL_PIN);
 					}
-
 					if(pwmt_connect_status != PWMT_CONNECTED || pwmt_repeat_on_error_cnt > 0) { // reconnect after cfg_glo.pwmt_delay_after_err
 						if(pwmt_repeat_on_error_cnt == 0 && cfg_glo.sleep_after_series_errors != 0) { // UART0 off
 							sleep_after_errors_cnt = cfg_glo.sleep_after_series_errors;
