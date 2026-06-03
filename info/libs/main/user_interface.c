@@ -42,7 +42,7 @@ void wifi_station_set_default_hostname(uint8 * mac)
 		hostname = NULL;
 	}
 	hostname = os_malloc(32);
-	if(hostname == NULL) {
+	if(hostname != NULL) {
 		ets_sprintf(hostname,"ESP_%02X%02X%02X", mac[3], mac[4], mac[5]);
 	}
 }
