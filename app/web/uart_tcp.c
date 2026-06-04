@@ -586,12 +586,25 @@ void uart_intr_handler(void *para)
 #endif // USE_TCP2UART
 #ifdef USE_UART0
 #ifdef UART0_IRDA
+volatile bool uart0_echo_lock = false;
+
 void uart_next_timer_func(void)
 {
 	MEMW();
 	if(UART0_Buffer_idx < UART0_Buffer_size) {
 		UART0_FIFO = UART0_Buffer[UART0_Buffer_idx++];
+		uart0_echo_lock = true;
 	} else {
+		if(uart0_echo_lock) {
+			uart0_echo_lock = false;
+			return;
+		}
+	    // Аппаратно очищаем RX FIFO от накопившегося за время передачи эха
+	    SET_PERI_REG_MASK(UART_CONF0(UART0), UART_RXFIFO_RST);
+	    CLEAR_PERI_REG_MASK(UART_CONF0(UART0), UART_RXFIFO_RST);
+	    // Сбрасываем флаги прерываний, которые нагенерировало эхо
+	    UART0_INT_CLR = UART_RXFIFO_FULL_INT_CLR | UART_RXFIFO_TOUT_INT_CLR;
+	    UART_Buffer_idx = 0;
 	#ifdef USE_TIMER0
 		//timer0_stop(); // <- hangs on active wifi transfer
 		TIMER0_CTRL = 0;
