@@ -592,8 +592,8 @@ void uart_next_timer_func(void)
 {
 	MEMW();
 	if(UART0_Buffer_idx < UART0_Buffer_size) {
-		UART0_FIFO = UART0_Buffer[UART0_Buffer_idx++];
 		uart0_echo_lock = true;
+		UART0_FIFO = UART0_Buffer[UART0_Buffer_idx++];
 	} else {
 		if(uart0_echo_lock) {
 			uart0_echo_lock = false;
@@ -640,10 +640,11 @@ void uart_intr_handler(void *para)
 								break;
 							}
 							// скопируем символ в буфер
-							UART_Buffer[UART_Buffer_idx++] = READ_PERI_REG(UART_FIFO(UART0)) & 0xFF;
+							uint32_t rb = READ_PERI_REG(UART_FIFO(UART0));
+							if(!uart0_echo_lock) UART_Buffer[UART_Buffer_idx++] = rb & 0xFF;
 						} while((READ_PERI_REG(UART_STATUS(UART0))>>UART_RXFIFO_CNT_S) & UART_RXFIFO_CNT);
 					}
-					system_os_post(uart_TaskPrio, UART_RX_CHARS, 0);
+					if(!uart0_echo_lock) system_os_post(uart_TaskPrio, UART_RX_CHARS, 0);
 				}
 			}
 #ifndef UART0_IRDA
